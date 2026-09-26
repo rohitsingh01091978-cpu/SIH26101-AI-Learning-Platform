@@ -3,6 +3,7 @@ import { Save, CheckCircle2 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import ErrorState from '../components/ErrorState.jsx';
+import PasswordCard from '../components/PasswordCard.jsx';
 import { getProfile, updateProfile } from '../services/profileService';
 import { getErrorMessage } from '../services/api';
 
@@ -123,6 +124,9 @@ export default function Profile() {
           )}
         </div>
       </form>
+
+      {/* Seeded demo credentials are public, so demo accounts cannot change their password. */}
+      {!isDemoAccount && <PasswordCard />}
     </div>
   );
 }

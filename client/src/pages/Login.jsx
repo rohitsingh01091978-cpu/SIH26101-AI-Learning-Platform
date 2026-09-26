@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { getErrorMessage } from '../services/api';
 import GoogleButton from '../components/GoogleButton.jsx';
+import { googleLoginUrl } from '../services/api';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -181,6 +182,13 @@ export default function Login() {
             </div>
 
             {errorBox}
+
+            {/* Static hint shown to everyone, so it cannot reveal which emails are Google-only. */}
+            <p className="text-xs leading-relaxed text-ink-500">
+              Signed up with Google?{' '}
+              <a href={googleLoginUrl} className="font-medium text-primary-700 hover:underline">Continue with Google</a>
+              , then you can add a password from your Profile.
+            </p>
 
             <button type="submit" disabled={loading} className="btn-primary w-full">
               <LogIn size={16} />

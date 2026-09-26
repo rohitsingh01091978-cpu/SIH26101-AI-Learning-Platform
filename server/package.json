@@ -14,7 +14,7 @@
     "seed": "node prisma/seed.js",
     "postinstall": "prisma generate",
     "start:prod": "prisma migrate deploy && node src/server.js",
-    "test": "node --test test/auth.test.js test/google.test.js",
+    "test": "node --test test/auth.test.js test/google.test.js test/password.test.js",
     "test:flow": "node --test test/flow.test.js"
   },
   "prisma": {

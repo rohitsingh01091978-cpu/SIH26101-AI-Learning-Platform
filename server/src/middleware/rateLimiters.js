@@ -81,9 +81,18 @@ const googleLinkLimiter = rateLimit({
   },
 });
 
+// Changing a password verifies the current one, so it is brute-force limited like a login
+// (failed attempts only, per IP + user). Mount AFTER `authenticate`.
+const passwordChangeLimiter = rateLimit({
+  ...base,
+  limit: toInt(process.env.LOGIN_RATE_LIMIT_MAX, 5),
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}|pw|${req.user ? req.user.id : ''}`,
+});
+
 module.exports = {
   loginLimiters: [loginIpLimiter, loginAccountLimiter],
   registerLimiter,
   googleFlowLimiter,
   googleLinkLimiter,
+  passwordChangeLimiter,
 };

@@ -29,6 +29,7 @@ const authenticate = async (req, res, next) => {
     }
 
     req.user = { id: user.id, email: user.email, role: user.role, name: user.name };
+    req.tokenIssuedAt = payload.iat; // seconds; lets sensitive actions require a recent sign-in
     next();
   } catch (err) {
     next(err);

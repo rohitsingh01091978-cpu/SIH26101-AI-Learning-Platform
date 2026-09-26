@@ -1,7 +1,7 @@
 const express = require('express');
-const { register, login, me, registerValidators, loginValidators } = require('../controllers/authController');
+const { register, login, me, setPassword, setPasswordValidators, registerValidators, loginValidators } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
-const { loginLimiters, registerLimiter, googleFlowLimiter, googleLinkLimiter } = require('../middleware/rateLimiters');
+const { loginLimiters, registerLimiter, googleFlowLimiter, googleLinkLimiter, passwordChangeLimiter } = require('../middleware/rateLimiters');
 const {
   startGoogleLogin,
   googleCallback,
@@ -16,6 +16,7 @@ const router = express.Router();
 router.post('/register', registerLimiter, registerValidators, register);
 router.post('/login', ...loginLimiters, loginValidators, login);
 router.get('/me', authenticate, me);
+router.post('/password', authenticate, passwordChangeLimiter, setPasswordValidators, setPassword);
 
 // Google OAuth (authorization-code flow). /google and /google/callback are browser navigations;
 // /google/exchange and /google/link are called by the frontend with fetch/axios.

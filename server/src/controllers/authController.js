@@ -114,9 +114,63 @@ const me = asyncHandler(async (req, res) => {
       email: user.email,
       name: user.name,
       role: user.role,
+      // Booleans only - never the hash. Lets the UI offer "set a password" to Google-only accounts.
+      hasPassword: Boolean(user.password),
+      hasGoogle: Boolean(user.googleId),
       profile: user.profile,
     },
   });
 });
 
-module.exports = { register, login, me, registerValidators, loginValidators };
+// ---------------------------------------------------------------- set / change password
+
+const RECENT_SIGN_IN_SECONDS = 15 * 60;
+
+const setPasswordValidators = [
+  body('newPassword')
+    .isString().withMessage('New password is required.').bail()
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters.').bail()
+    .isLength({ max: 72 }).withMessage('Password must be at most 72 characters.'),
+  body('currentPassword')
+    .optional()
+    .isString().withMessage('Current password must be text.').bail()
+    .isLength({ max: 128 }).withMessage('Current password is too long.'),
+];
+
+// POST /auth/password  (authenticated)
+//  - Account WITH a password (change): the current password must be supplied and correct.
+//  - Account WITHOUT one (e.g. created through Google): allowed only if this session's token
+//    is recent, so a stale/stolen token cannot plant a permanent password.
+// The new password is hashed with the same bcrypt settings as registration and never stored or logged in plaintext.
+const setPassword = asyncHandler(async (req, res) => {
+  checkValidation(req);
+  const { newPassword, currentPassword } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+  if (!user) throw new ApiError(401, 'User account no longer exists.');
+
+  // Seeded demo credentials are public; they must not be changeable by anyone who logs in with them.
+  if (user.email.endsWith('@demo.gov.in')) {
+    throw new ApiError(403, 'Password changes are disabled for demo accounts.');
+  }
+
+  if (user.password) {
+    if (typeof currentPassword !== 'string' || !currentPassword) {
+      throw new ApiError(400, 'Current password is required.');
+    }
+    const ok = await bcrypt.compare(currentPassword, user.password);
+    if (!ok) throw new ApiError(401, 'Current password is incorrect.');
+  } else {
+    const age = Math.floor(Date.now() / 1000) - (req.tokenIssuedAt || 0);
+    if (age > RECENT_SIGN_IN_SECONDS) {
+      throw new ApiError(403, 'For your security, please sign out and sign in again, then set your password.');
+    }
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  await prisma.user.update({ where: { id: user.id }, data: { password: passwordHash } });
+
+  res.json({ success: true, message: 'Password saved. You can now sign in with your email and password.', hasPassword: true });
+});
+
+module.exports = { register, login, me, setPassword, setPasswordValidators, registerValidators, loginValidators };
