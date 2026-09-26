@@ -8,7 +8,8 @@ function publicMaterial(m) {
     fileSize: m.fileSize,
     status: m.status,
     uploadedAt: m.uploadedAt,
-    hasExtractedText: Boolean(m.extractedText),
+    // list/detail queries do not load the text; they pass an explicit flag instead
+    hasExtractedText: m.hasExtractedText !== undefined ? Boolean(m.hasExtractedText) : Boolean(m.extractedText),
     // true when the original file is stored and can be downloaded/deleted (never the location itself)
     hasStoredFile: Boolean(m.storageKey),
     ...(m.analysis !== undefined ? { analysis: m.analysis } : {}),

@@ -83,3 +83,90 @@ const SENTENCES = [
 ];
 
 module.exports = { buildPdf, buildDocx, SENTENCES };
+
+// ---------------------------------------------------------------------------------------------
+// Generic ZIP builder for extraction-safety tests. Each entry:
+//   { name, data, method: 'deflate' | 'store' | <number>, flags, declaredCompressed }
+// (declaredCompressed lets a test write a deliberately wrong size into the headers.)
+// Tests keep every fixture small by lowering the DOCX_* limits through environment variables.
+function buildZip(entries) {
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+  for (const e of entries) {
+    const nameBuf = Buffer.from(e.name);
+    const method = e.method === 'store' ? 0 : e.method === undefined || e.method === 'deflate' ? 8 : e.method;
+    const data = Buffer.isBuffer(e.data) ? e.data : Buffer.from(e.data);
+    const stored = method === 8 && !e.raw ? zlib.deflateRawSync(data) : data;
+    const compressedSize = e.declaredCompressed !== undefined ? e.declaredCompressed : stored.length;
+    const crc = zlib.crc32(data);
+    const flags = e.flags || 0;
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(flags, 6);
+    local.writeUInt16LE(method, 8);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(compressedSize, 18);
+    local.writeUInt32LE(e.declaredUncompressed !== undefined ? e.declaredUncompressed : data.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
+    locals.push(local, nameBuf, stored);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(flags, 8);
+    central.writeUInt16LE(method, 10);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(compressedSize, 20);
+    central.writeUInt32LE(e.declaredUncompressed !== undefined ? e.declaredUncompressed : data.length, 24);
+    central.writeUInt16LE(nameBuf.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(central, nameBuf);
+    offset += local.length + nameBuf.length + stored.length;
+  }
+  const centralBuf = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralBuf.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, centralBuf, end]);
+}
+
+const CONTENT_TYPES_XML =
+  '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
+const RELS_XML =
+  '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
+const documentXml = (text) =>
+  `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`;
+
+// A well-formed DOCX with the given body text, plus any extra entries.
+function docxWith(text, extraEntries = [], overrides = {}) {
+  return buildZip([
+    { name: '[Content_Types].xml', data: CONTENT_TYPES_XML },
+    { name: '_rels/.rels', data: RELS_XML },
+    { name: 'word/document.xml', data: overrides.documentData || documentXml(text), ...(overrides.document || {}) },
+    ...extraEntries,
+  ]);
+}
+
+// Deterministic, poorly-compressible filler text of roughly `chars` characters (so ratio limits are not what trips).
+function fillerText(chars, seed = 7) {
+  let x = seed;
+  const out = [];
+  let len = 0;
+  while (len < chars) {
+    x = (x * 1103515245 + 12345) & 0x7fffffff;
+    const w = (x % 1000003).toString(36);
+    out.push(w);
+    len += w.length + 1;
+  }
+  return out.join(' ').slice(0, chars);
+}
+
+module.exports.buildZip = buildZip;
+module.exports.docxWith = docxWith;
+module.exports.documentXml = documentXml;
+module.exports.fillerText = fillerText;

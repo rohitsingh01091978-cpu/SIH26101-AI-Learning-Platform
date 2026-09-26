@@ -14,7 +14,7 @@
     "seed": "node prisma/seed.js",
     "postinstall": "prisma generate",
     "start:prod": "prisma migrate deploy && node src/server.js",
-    "test": "node --test test/auth.test.js test/google.test.js test/password.test.js test/assistant.test.js test/assistant.external.test.js test/step1.hardening.test.js test/ai.hardening.test.js test/ai.misconfigured.test.js test/quota.test.js test/quota.refund.test.js test/passwordReset.test.js test/passwordReset.unavailable.test.js test/passwordReset.limits.test.js test/email.provider.test.js test/storage.test.js",
+    "test": "node --test test/auth.test.js test/google.test.js test/password.test.js test/assistant.test.js test/assistant.external.test.js test/step1.hardening.test.js test/ai.hardening.test.js test/ai.misconfigured.test.js test/quota.test.js test/quota.refund.test.js test/passwordReset.test.js test/passwordReset.unavailable.test.js test/passwordReset.limits.test.js test/email.provider.test.js test/storage.test.js test/c1.extraction.test.js test/c1.concurrency.test.js",
     "test:flow": "node --test test/flow.test.js",
     "storage:check": "node scripts/storageCheck.js",
     "storage:cleanup": "node scripts/storageCleanup.js"

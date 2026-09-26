@@ -39,6 +39,24 @@ Run inside the Railway service shell (or locally with the same variables):
     npm run storage:cleanup    # dry run: lists files no database record points to (older than 24h)
     npm run storage:cleanup -- --apply --min-age-hours 48   # actually delete such orphans
 
+## Document processing limits (resource safety)
+Uploaded documents are parsed in memory, so extraction is bounded:
+- **DOCX** (a ZIP archive) is inspected *before* the real parser runs. Every compressed part is actually decompressed
+  with a hard output cap - the sizes written in the archive headers are never trusted - and the upload is rejected
+  (HTTP 422 `DOCUMENT_TOO_LARGE`) if an XML part exceeds `DOCX_MAX_XML_MB`, all parts together exceed
+  `DOCX_MAX_TOTAL_MB`, or a sizeable part exceeds the compression-ratio limit. Malformed, truncated, encrypted or
+  otherwise suspicious archives, and archives without a real `word/document.xml`, are rejected with HTTP 415.
+- **All formats** share one extracted-text limit, `MAX_EXTRACTED_TEXT_CHARS` (HTTP 422 `TEXT_TOO_LONG`). PDFs stop
+  extracting further pages as soon as the limit is exceeded.
+- **Concurrency:** at most `MAX_CONCURRENT_EXTRACTIONS` (default 2) documents are extracted at the same time in one server
+  process. It is a limit, not a queue - waiting requests would hold their whole uploaded file in memory - so an
+  upload arriving while every slot is busy is refused straight away with HTTP 503 `EXTRACTION_BUSY` and a
+  `Retry-After` header; nothing is saved. The slot is held only while extracting, and always released. The limit is
+  per process: with several server instances each has its own.
+- Everything happens **before** anything is saved: a rejected document leaves no database row and no stored file.
+- The list and detail endpoints never load the extracted text from the database (they only report whether it exists).
+Invalid values for these variables fall back to the defaults; they never disable a limit.
+
 ## Existing uploads
 Materials uploaded **before** this change have no stored file (they were on the ephemeral disk). They keep their
 extracted text, analysis and quizzes; the UI simply does not offer *Download* for them (their *Delete* still works).
@@ -54,8 +72,16 @@ No existing database row is changed by the migration.
 | `MAX_UPLOAD_SIZE_MB` | `10` | upload size limit (over it: HTTP 413) |
 | `UPLOAD_RATE_LIMIT_PER_MINUTE` | `10` | per-user uploads per minute |
 | `FILE_ACCESS_RATE_LIMIT_PER_MINUTE` | `30` | per-user downloads/deletes per minute |
+| `MAX_EXTRACTED_TEXT_CHARS` | `2000000` | max characters of text extracted from any PDF/DOCX/TXT (~1000 pages); over it: HTTP 422 `TEXT_TOO_LONG` |
+| `DOCX_MAX_XML_MB` | `8` | max expanded size of one XML part inside a DOCX (MB, decimals allowed) |
+| `DOCX_MAX_TOTAL_MB` | `40` | max expanded size of all parts of a DOCX together (MB) |
+| `DOCX_MAX_COMPRESSION_RATIO` | `100` | max expanded:compressed ratio for any DOCX part larger than 256 KB |
+| `MAX_CONCURRENT_EXTRACTIONS` | `2` | how many document extractions may run at once in one server process (1-32); further uploads get a 503 with `Retry-After` |
 
 ## Limitations
+- PDF text extraction still happens inside the API process; it is bounded by the text limit (extraction stops once it is
+  exceeded) but a PDF's internal streams are decoded by the third-party parser, so running extraction in an isolated
+  worker/process is a recommended future hardening step.
 - No antivirus scanning yet (validation is by extension + file signature; files are never executed or served inline).
 - Not multi-replica safe (a volume attaches to one instance).
 - Deleting a user account (no such feature yet) would not remove that user's files automatically.

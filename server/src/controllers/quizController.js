@@ -44,8 +44,9 @@ const generateQuiz = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'count must be 5, 10, or 20.');
   }
 
-  const material = await prisma.learningMaterial.findUnique({ where: { id: materialId } });
-  if (!material || material.userId !== req.user.id) {
+  // The text is needed to generate questions; ownership is part of the query so other users' text is never loaded.
+  const material = await prisma.learningMaterial.findFirst({ where: { id: materialId, userId: req.user.id } });
+  if (!material) {
     throw new ApiError(404, 'Material not found.');
   }
   if (!material.extractedText) {

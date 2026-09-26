@@ -5,6 +5,7 @@ const prisma = require('../utils/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { extractTextFromBuffer } = require('../document/textExtractor');
+const { withExtractionSlot } = require('../document/extractionGate');
 const { publicMaterial } = require('../utils/serializers');
 const { reserveAiQuota, FEATURES } = require('../services/aiQuota');
 const { runCoreAI } = require('../ai');
@@ -16,8 +17,9 @@ const { validateUpload, contentDisposition, CONTENT_TYPES } = require('../storag
 const MIN_TEXT_CHARS = 20;
 
 // POST /materials/upload
-// Order matters: validate -> extract text IN MEMORY -> store the file -> save the record. A document
-// that cannot be read is never stored, and a failure part-way leaves no orphaned file behind.
+// Order matters: validate -> safety checks + text extraction IN MEMORY -> store the file -> save the record.
+// Nothing is recorded or stored until every check has passed, so a rejected or unreadable document leaves
+// no database row and no file behind, and a failure part-way through cleans up after itself.
 const uploadMaterial = asyncHandler(async (req, res) => {
   if (!req.file) {
     throw new ApiError(400, 'No file uploaded. Accepted types: PDF, DOCX, TXT.');
@@ -27,61 +29,72 @@ const uploadMaterial = asyncHandler(async (req, res) => {
   const { fileType, originalName } = validateUpload(req.file); // 415 unless the bytes really are that format
   const key = buildKey(req.user.id, fileType); // server-generated; the owner is the JWT user
 
-  const material = await prisma.learningMaterial.create({
-    data: {
-      userId: req.user.id,
-      fileName: key.split('/').pop(), // generated name, never the client's
-      originalName,
-      fileType,
-      fileSize: req.file.size,
-      storageProvider: storage.name(),
-      status: 'EXTRACTING',
-    },
-  });
-
-  let text = null;
+  // 1. Resource-safety checks (archive inspection, extracted-text limit) happen inside the extractor.
+  //    Their clean 4xx errors are passed through; anything unexpected becomes a generic 422.
+  let text;
   try {
-    text = await extractTextFromBuffer(req.file.buffer, fileType);
+    text = await withExtractionSlot(() => extractTextFromBuffer(req.file.buffer, fileType));
   } catch (err) {
-    await prisma.learningMaterial.update({ where: { id: material.id }, data: { status: 'FAILED' } });
+    if (err instanceof ApiError) throw err;
     throw new ApiError(422, 'Failed to extract text from the uploaded document.');
   }
   if (!text || text.trim().length < MIN_TEXT_CHARS) {
-    await prisma.learningMaterial.update({ where: { id: material.id }, data: { status: 'FAILED' } });
     throw new ApiError(422, 'The uploaded document appears to be empty or unreadable.');
   }
 
+  // 2. Store the original file.
   try {
     await storage.put(key, req.file.buffer);
   } catch (err) {
     console.error('[storage] could not store an uploaded file.'); // no name, path or content
-    await prisma.learningMaterial.delete({ where: { id: material.id } }).catch(() => {});
     throw storageUnavailable();
   }
 
+  // 3. Save the record (one write, already complete). If it fails, remove the file again.
   try {
-    const updated = await prisma.learningMaterial.update({
-      where: { id: material.id },
+    const material = await prisma.learningMaterial.create({
       data: {
-        extractedText: text,
-        status: 'UPLOADED',
+        userId: req.user.id,
+        fileName: key.split('/').pop(), // generated name, never the client's
+        originalName,
+        fileType,
+        fileSize: req.file.size,
+        storageProvider: storage.name(),
         storageKey: key,
         sha256: crypto.createHash('sha256').update(req.file.buffer).digest('hex'),
+        extractedText: text,
+        status: 'UPLOADED',
       },
     });
-    res.status(201).json({ success: true, material: publicMaterial(updated) });
+    res.status(201).json({ success: true, material: publicMaterial({ ...material, hasExtractedText: true }) });
   } catch (err) {
     await storage.delete(key).catch(() => {}); // do not leave a file that no record points to
     throw err;
   }
 });
 
+// Columns the list/detail endpoints need. The (potentially very large) extractedText column is deliberately NOT here.
+const MATERIAL_SELECT = { id: true, originalName: true, fileType: true, fileSize: true, status: true, uploadedAt: true, storageKey: true };
+
+// Adds hasExtractedText to materials WITHOUT loading any text: a separate query asks only "which of these ids
+// have text" (a NULL test), and returns just their ids.
+async function withTextFlags(userId, materials) {
+  if (!materials.length) return materials;
+  const rows = await prisma.learningMaterial.findMany({
+    where: { userId, id: { in: materials.map((m) => m.id) }, extractedText: { not: null } },
+    select: { id: true },
+  });
+  const withText = new Set(rows.map((r) => r.id));
+  return materials.map((m) => ({ ...m, hasExtractedText: withText.has(m.id) }));
+}
+
 const listMaterials = asyncHandler(async (req, res) => {
-  const materials = await prisma.learningMaterial.findMany({
+  const rows = await prisma.learningMaterial.findMany({
     where: { userId: req.user.id },
-    include: { analysis: true, quizzes: { select: { id: true } } },
+    select: { ...MATERIAL_SELECT, analysis: true, quizzes: { select: { id: true } } },
     orderBy: { uploadedAt: 'desc' },
   });
+  const materials = await withTextFlags(req.user.id, rows);
   res.json({
     success: true,
     materials: materials.map(publicMaterial),
@@ -90,19 +103,21 @@ const listMaterials = asyncHandler(async (req, res) => {
 
 const getMaterial = asyncHandler(async (req, res) => {
   // Ownership is part of the query itself: someone else's material is indistinguishable from a missing one.
-  const material = await prisma.learningMaterial.findFirst({
+  const row = await prisma.learningMaterial.findFirst({
     where: { id: req.params.id, userId: req.user.id },
-    include: { analysis: true, quizzes: true },
+    select: { ...MATERIAL_SELECT, analysis: true, quizzes: true },
   });
-  if (!material) {
+  if (!row) {
     throw new ApiError(404, 'Material not found.');
   }
+  const [material] = await withTextFlags(req.user.id, [row]);
   res.json({ success: true, material: publicMaterial(material) });
 });
 
 const analyzeMaterial = asyncHandler(async (req, res) => {
-  const material = await prisma.learningMaterial.findUnique({ where: { id: req.params.id } });
-  if (!material || material.userId !== req.user.id) {
+  // The text is needed here (it is what gets analysed); ownership is part of the query so other users' text is never loaded.
+  const material = await prisma.learningMaterial.findFirst({ where: { id: req.params.id, userId: req.user.id } });
+  if (!material) {
     throw new ApiError(404, 'Material not found.');
   }
   if (!material.extractedText) {

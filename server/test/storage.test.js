@@ -412,17 +412,14 @@ test('invalid file types are rejected with 415 and nothing is stored or recorded
   assert.equal((await request(base, 'POST', '/materials/upload', { token: a.token })).status, 400, 'no file at all');
 });
 
-test('a genuine-looking PDF whose text cannot be extracted is refused (422) and its file is NOT stored', async () => {
+test('a genuine-looking PDF whose text cannot be extracted is refused (422): no file stored AND no record left behind', async () => {
   const a = await makeUser('junkpdf');
   const before = walk(ROOT).length;
   const junk = Buffer.from(`%PDF-1.4\n${'garbage that is not a real pdf structure '.repeat(200)}`);
   const res = await upload(a, junk, 'junk.pdf', 'application/pdf');
   assert.equal(res.status, 422);
   assert.equal(walk(ROOT).length, before, 'unreadable documents never reach storage');
-  const rows = await prisma.learningMaterial.findMany({ where: { userId: a.user.id } });
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0].status, 'FAILED');
-  assert.equal(rows[0].storageKey, null);
+  assert.equal(await prisma.learningMaterial.count({ where: { userId: a.user.id } }), 0, 'a rejected upload leaves no material row');
 });
 
 test('oversized files are rejected with 413 and a clear message (limit MAX_UPLOAD_SIZE_MB)', async () => {
@@ -473,10 +470,11 @@ test('when the storage write fails: 503, no record left behind, no file, and not
 test('if saving the record fails after the file was stored, the file is removed (no orphan)', async () => {
   const a = await makeUser('dbfail');
   const before = walk(ROOT).length;
-  const realUpdate = prisma.learningMaterial.update.bind(prisma.learningMaterial);
-  prisma.learningMaterial.update = async (args) => {
+  // The record is now written in one step (create), after the file has been stored.
+  const realCreate = prisma.learningMaterial.create.bind(prisma.learningMaterial);
+  prisma.learningMaterial.create = async (args) => {
     if (args && args.data && args.data.storageKey) throw new Error('simulated database failure');
-    return realUpdate(args);
+    return realCreate(args);
   };
   const errSpy = console.error;
   console.error = () => {};
@@ -484,11 +482,12 @@ test('if saving the record fails after the file was stored, the file is removed 
   try {
     res = await uploadTxt(a);
   } finally {
-    prisma.learningMaterial.update = realUpdate;
+    prisma.learningMaterial.create = realCreate;
     console.error = errSpy;
   }
   assert.equal(res.status, 500);
   assert.equal(walk(ROOT).length, before, 'the stored file was cleaned up');
+  assert.equal(await prisma.learningMaterial.count({ where: { userId: a.user.id } }), 0);
 });
 
 // ============================================================================ legacy records
