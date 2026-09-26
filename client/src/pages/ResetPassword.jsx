@@ -123,7 +123,7 @@ export default function ResetPassword() {
       )}
 
       <p className="mt-6 border-t border-ink-200 pt-4 text-center text-[11px] text-ink-400">
-        SIH26101 Prototype &bull; For demonstration purposes
+        AI-Powered Learning &amp; Competency Intelligence Platform
       </p>
     </div>
   );

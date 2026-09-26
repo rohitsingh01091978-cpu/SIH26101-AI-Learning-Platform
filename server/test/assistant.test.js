@@ -119,10 +119,10 @@ test('other typed questions: weakest, target role skills, progress, 30-day plan'
   assert.match(plan.data.reply, /30-day plan/);
 });
 
-test('course answers name only catalog courses and label the prototype iGOT catalog', async () => {
+test('course answers name only catalog courses and label the iGOT-aligned training catalog', async () => {
   const res = await chat(A.token, 'Which course should I take first?');
   assert.equal(res.status, 200);
-  assert.equal(res.data.courseSource, 'Prototype iGOT Catalog');
+  assert.equal(res.data.courseSource, 'iGOT-aligned Training Catalog');
   assert.equal(res.data.liveIgot, false);
   const comps = new Set((await prisma.competency.findMany({ select: { name: true } })).map((c) => c.name));
   const titles = new Set((await prisma.course.findMany({ select: { title: true } })).map((c) => c.title));
@@ -130,7 +130,8 @@ test('course answers name only catalog courses and label the prototype iGOT cata
   const quoted = [...res.data.reply.matchAll(/"([^"]+)"/g)].map((m) => m[1]).filter((q) => !comps.has(q));
   assert.ok(quoted.length > 0, 'a course should be named for a learner with open gaps');
   for (const t of quoted) assert.ok(titles.has(t), `"${t}" must be a real catalog course`);
-  assert.match(res.data.reply, /prototype iGOT catalog/i);
+  assert.match(res.data.reply, /iGOT-aligned training catalog/i);
+  assert.doesNotMatch(res.data.reply, /prototype/i);
   assert.doesNotMatch(res.data.reply, /live on iGOT/i);
 });
 

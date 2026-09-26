@@ -15,10 +15,11 @@ function GoogleG() {
 
 // A real link to the backend, which redirects to Google's own sign-in page.
 // Styled after Google's sign-in branding guidelines (white, thin grey border, "G" logo).
-export default function GoogleButton({ label = 'Continue with Google' }) {
+export default function GoogleButton({ label = 'Continue with Google', onClick }) {
   return (
     <a
       href={googleLoginUrl}
+      onClick={onClick}
       className="flex h-10 w-full items-center justify-center gap-3 rounded border border-[#747775] bg-white px-3 text-sm font-medium text-[#1f1f1f] transition-colors hover:bg-[#f8f9fa] focus:outline-none focus:ring-2 focus:ring-primary-100"
     >
       <GoogleG />

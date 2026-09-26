@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../context/AuthContext.jsx';
 import AIAssistant from '../components/AIAssistant.jsx';
 import { getSkillGaps } from '../services/skillGapService';
+import { roleLabel } from '../utils/display';
 
 const LEARNER_NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -29,7 +30,7 @@ const LEARNER_NAV = [
   { to: '/skill-gaps', label: 'Skill Gaps', icon: TrendingDown },
   { to: '/materials', label: 'AI Content Intelligence', icon: FileText },
   { to: '/learning-path', label: 'Learning Path', icon: RouteIcon },
-  { to: '/igot-courses', label: 'iGOT Courses', icon: GraduationCap },
+  { to: '/igot-courses', label: 'iGOT-aligned Courses', icon: GraduationCap },
   { to: '/progress', label: 'Progress', icon: LineChart },
 ];
 
@@ -192,7 +193,7 @@ function SidebarContent({ navItems, user, onLogout, onNavigate, collapsed = fals
           {!collapsed && (
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-ink-900">{user?.name}</p>
-              <p className="truncate text-xs text-ink-500">{user?.email}</p>
+              <p className="truncate text-xs text-ink-500">{roleLabel(user?.role)}</p>
             </div>
           )}
         </div>

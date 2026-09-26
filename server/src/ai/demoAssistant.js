@@ -8,7 +8,7 @@
  */
 
 const CATALOG_NOTE =
-  'Note: courses come from the prototype iGOT catalog built into this application, not from a live iGOT feed.';
+  'Note: courses come from the iGOT-aligned training catalog built into this platform; a live iGOT feed is not connected.';
 
 const lc = (s) => String(s || '').toLowerCase();
 const level = (l) => (l ? l.charAt(0) + l.slice(1).toLowerCase() : '');

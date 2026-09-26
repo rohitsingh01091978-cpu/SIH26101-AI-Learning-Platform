@@ -21,7 +21,7 @@ export default function AuthLayout() {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 backdrop-blur">
                 <BrainCircuit size={20} />
               </div>
-              <span className="font-display text-sm font-bold tracking-wide">GOVERNMENT OF INDIA</span>
+              <span className="font-display text-sm font-bold tracking-wide">AI LEARNING PLATFORM</span>
             </div>
 
             <h1 className="mt-12 font-display text-3xl font-bold leading-tight">
@@ -46,7 +46,7 @@ export default function AuthLayout() {
             ))}
           </div>
 
-          <p className="relative text-[11px] text-primary-300">SIH26101 · Smart Education · Prototype build</p>
+          <p className="relative text-[11px] text-primary-300">SIH26101 · Smart Education</p>
         </div>
 
         {/* Right: form */}

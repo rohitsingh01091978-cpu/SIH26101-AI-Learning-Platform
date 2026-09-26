@@ -62,7 +62,7 @@ test('external provider: grounded context is sent server-side, key only in the A
   const userMsg = messages[messages.length - 1].content;
   assert.match(userMsg, /"current":12/, "learner's real level is in the grounded context");
   assert.match(userMsg, /TESTROLE-X/);
-  assert.match(userMsg, /Prototype iGOT Catalog/);
+  assert.match(userMsg, /iGOT-aligned Training Catalog/);
   assert.ok(!userMsg.includes('Ext Learner Name'), "learner's name is not sent to the external model");
   assert.equal(messages.filter((m) => m.content === 'earlier question' || m.content === 'earlier answer').length, 2, 'history is passed through');
 
