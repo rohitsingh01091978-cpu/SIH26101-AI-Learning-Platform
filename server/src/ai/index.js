@@ -48,4 +48,23 @@ async function withAIFallback(methodName, ...args) {
   }
 }
 
-module.exports = { getAIProvider, withAIFallback };
+/**
+ * Same as withAIFallback, but also reports WHICH provider produced the result, so callers
+ * (the assistant) can tell the learner honestly whether an external model or the offline
+ * demo engine answered - including when an external call failed and demo took over.
+ */
+async function withAIFallbackMeta(methodName, ...args) {
+  const provider = getAIProvider();
+  try {
+    return { result: await provider[methodName](...args), provider: provider.name(), fellBack: false };
+  } catch (err) {
+    if (provider.name() === 'external') {
+      console.warn(`[ai] External provider call failed (${err.message}). Falling back to DemoAIProvider for this call.`);
+      const demo = new DemoAIProvider();
+      return { result: await demo[methodName](...args), provider: 'demo', fellBack: true };
+    }
+    throw err;
+  }
+}
+
+module.exports = { getAIProvider, withAIFallback, withAIFallbackMeta };

@@ -26,6 +26,18 @@ class AIProvider {
     throw new Error('generateMCQs() not implemented');
   }
 
+  /**
+   * Conversational answer for the Karmayogi AI Assistant.
+   * @param {string} message - the learner's question
+   * @param {object} context - the learner's REAL data (see assistant/learnerContext.js);
+   *   the only facts the answer may use
+   * @param {Array<{role:'user'|'assistant', text:string}>} history - recent turns, oldest first
+   * @returns {Promise<{reply:string, intent?:string}>}
+   */
+  async answerLearnerQuestion(message, context, history) {
+    throw new Error('answerLearnerQuestion() not implemented');
+  }
+
   name() {
     return 'base';
   }

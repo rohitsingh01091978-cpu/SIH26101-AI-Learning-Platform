@@ -13,6 +13,9 @@ Real OAuth 2.0 / OpenID Connect (authorization code + PKCE) via `google-auth-lib
 - After Google, the backend redirects with a one-time 60-second code in the URL fragment; the frontend exchanges it for the normal JWT. The JWT is never in a URL. `GOOGLE_CLIENT_SECRET` exists only in the server environment.
 - Google-only accounts have no password (`password` is NULL) and cannot use password login.
 
+## Karmayogi AI Assistant
+`POST /api/assistant/chat` is learner-only and identifies the learner solely from the JWT; body fields such as `learnerId` are ignored. Answers use only that learner's data. With `AI_PROVIDER=demo` an offline rule-based engine answers (no model is involved and replies are labelled "Offline demo assistant"). With `AI_PROVIDER=external`, the learner's data (minus their name) is sent server-side to the configured model; the API key stays in the server environment and if the model fails the offline engine answers and the reply says so. Chat is rate limited per learner.
+
 ## Rate limiting (`server/src/middleware/rateLimiters.js`)
 Only auth endpoints are limited; only failed logins count; blocks expire by themselves (HTTP 429 + `Retry-After`).
 

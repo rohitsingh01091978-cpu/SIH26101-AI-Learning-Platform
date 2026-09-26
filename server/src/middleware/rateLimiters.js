@@ -89,10 +89,22 @@ const passwordChangeLimiter = rateLimit({
   keyGenerator: (req) => `${ipKeyGenerator(req.ip)}|pw|${req.user ? req.user.id : ''}`,
 });
 
+// Assistant chat: per learner, so one user cannot run up external-AI usage. Mount AFTER `authenticate`.
+const assistantLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: toInt(process.env.ASSISTANT_RATE_LIMIT_PER_MINUTE, 20),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.user ? `u:${req.user.id}` : ipKeyGenerator(req.ip)),
+  handler: (req, res) =>
+    res.status(429).json({ success: false, message: 'You are sending messages too quickly. Please wait a moment.' }),
+});
+
 module.exports = {
   loginLimiters: [loginIpLimiter, loginAccountLimiter],
   registerLimiter,
   googleFlowLimiter,
   googleLinkLimiter,
   passwordChangeLimiter,
+  assistantLimiter,
 };

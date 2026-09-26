@@ -14,6 +14,7 @@ router.use('/learning-path', require('./learningPathRoutes'));
 router.use('/recommendations', require('./recommendationRoutes'));
 router.use('/progress', require('./progressRoutes'));
 router.use('/igot', require('./igotRoutes'));
+router.use('/assistant', require('./assistantRoutes'));
 router.use('/admin', require('./adminRoutes'));
 
 module.exports = router;

@@ -10,6 +10,7 @@ const {
 } = require('./textAnalysis');
 const { detectCompetencies, detectCompetencyForSentence, detectCompetenciesWithEvidence } = require('./competencyKeywords');
 const { pickFallbackQuestions } = require('./demoQuestionBank');
+const demoAssistant = require('./demoAssistant');
 
 /**
  * Zero-dependency, offline "AI" provider. Every output is computed straight
@@ -21,6 +22,11 @@ const { pickFallbackQuestions } = require('./demoQuestionBank');
 class DemoAIProvider extends AIProvider {
   name() {
     return 'demo';
+  }
+
+  // Offline: rule-based composition over the learner's real data. No model, no network call.
+  async answerLearnerQuestion(message, context) {
+    return demoAssistant.answer(message, context);
   }
 
   async analyzeDocument(text) {

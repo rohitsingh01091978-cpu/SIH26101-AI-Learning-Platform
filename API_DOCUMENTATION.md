@@ -129,6 +129,19 @@ Fully recomputed on every call from live skill gaps + the prototype iGOT catalog
 `live` is `true` only if `IGOT_API_BASE_URL`/`IGOT_API_KEY` are configured — they are not
 in this prototype, so this always reports the prototype catalog.
 
+## Assistant 🔒 (role: LEARNER)
+
+### `POST /assistant/chat`
+Body: `{ "message": string (1-1000 chars), "history"?: [{ "role": "user"|"assistant", "text": string }] }`
+→ `{ success, reply, provider: "demo"|"external", fellBack: boolean, courseSource: "Prototype iGOT Catalog", liveIgot: false }`
+
+The learner is always the authenticated user (from the JWT); no learner id is accepted in the body.
+The reply is composed from that learner's own profile, competency levels, skill gaps, stored learning path,
+progress, recent assessment/quiz results and material analyses. `provider: "demo"` is the offline rule-based
+engine (no language model); `"external"` means the configured external model was sent the learner's data;
+`fellBack: true` means the external model failed and the offline engine answered. Errors: `400` invalid message,
+`401` unauthenticated, `403` not a learner, `429` more than 20 messages/minute, `503` assistant unavailable.
+
 ## Admin 🔒 (role: ADMIN)
 
 ### `GET /admin/dashboard`
