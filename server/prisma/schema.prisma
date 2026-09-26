@@ -1,0 +1,416 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  LEARNER
+  ADMIN
+}
+
+enum CompetencyCategory {
+  STATISTICAL
+  TECHNICAL
+  DIGITAL_GOVERNANCE
+  BEHAVIOURAL_MANAGERIAL
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuizDifficultyMode {
+  EASY
+  MEDIUM
+  HARD
+  MIXED
+}
+
+enum AssessmentType {
+  INITIAL
+  REASSESSMENT
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MaterialStatus {
+  UPLOADED
+  EXTRACTING
+  ANALYZING
+  COMPLETED
+  FAILED
+}
+
+enum MaterialFileType {
+  PDF
+  DOCX
+  TXT
+}
+
+enum GapStatus {
+  STRONG
+  DEVELOPING
+  NEEDS_IMPROVEMENT
+}
+
+enum PriorityLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ==================== CORE ====================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(LEARNER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile              LearnerProfile?
+  learnerCompetencies  LearnerCompetency[]
+  assessmentAttempts   AssessmentAttempt[]
+  quizAttempts         QuizAttempt[]
+  materials            LearningMaterial[]
+  skillGaps            SkillGap[]
+  recommendations      LearningRecommendation[]
+  progress             LearningProgress[]
+
+  @@map("users")
+}
+
+model LearnerProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  department    String?
+  organization  String?
+  experience    Int      @default(0) // years
+  currentRole   String?
+  targetRole    String?
+  learningGoals String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("learner_profiles")
+}
+
+// ==================== COMPETENCY FRAMEWORK ====================
+
+model Competency {
+  id          String             @id @default(uuid())
+  name        String             @unique
+  category    CompetencyCategory
+  description String?
+  createdAt   DateTime           @default(now())
+
+  learnerCompetencies  LearnerCompetency[]
+  assessmentQuestions  AssessmentQuestion[]
+  quizQuestions        QuizQuestion[]
+  skillGaps            SkillGap[]
+  recommendations      LearningRecommendation[]
+  courses              Course[]
+  progress             LearningProgress[]
+
+  @@map("competencies")
+}
+
+model LearnerCompetency {
+  id             String   @id @default(uuid())
+  userId         String
+  competencyId   String
+  currentLevel   Int      @default(0) // 0-100
+  requiredLevel  Int      @default(0) // 0-100, derived from target role
+  lastAssessedAt DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, competencyId])
+  @@map("learner_competencies")
+}
+
+// ==================== COMPETENCY ASSESSMENT ====================
+
+model Assessment {
+  id        String         @id @default(uuid())
+  title     String
+  type      AssessmentType @default(INITIAL)
+  createdAt DateTime       @default(now())
+
+  questions AssessmentQuestion[]
+  attempts  AssessmentAttempt[]
+
+  @@map("assessments")
+}
+
+model AssessmentQuestion {
+  id            String             @id @default(uuid())
+  assessmentId  String
+  competencyId  String
+  question      String
+  options       Json // string[]
+  correctAnswer Int // index into options
+  difficulty    QuestionDifficulty @default(MEDIUM)
+  explanation   String?
+  createdAt     DateTime           @default(now())
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  responses  QuestionResponse[]
+
+  @@map("assessment_questions")
+}
+
+model AssessmentAttempt {
+  id           String        @id @default(uuid())
+  userId       String
+  assessmentId String
+  startedAt    DateTime      @default(now())
+  completedAt  DateTime?
+  score        Float?        // overall %
+  status       AttemptStatus @default(IN_PROGRESS)
+  performanceJson Json? // competency-wise score breakdown
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  responses  QuestionResponse[]
+
+  @@map("assessment_attempts")
+}
+
+// ==================== AI-GENERATED QUIZ (ADAPTIVE) ====================
+
+model Quiz {
+  id            String             @id @default(uuid())
+  materialId    String?
+  userId        String
+  title         String
+  difficultyMode QuizDifficultyMode @default(MIXED)
+  questionCount Int
+  createdAt     DateTime           @default(now())
+
+  material  LearningMaterial? @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id              String             @id @default(uuid())
+  quizId          String
+  competencyId    String?
+  question        String
+  options         Json // string[]
+  correctAnswer   Int
+  explanation     String
+  topic           String?
+  difficulty      QuestionDifficulty @default(MEDIUM)
+  sourceReference String?
+  orderIndex      Int                @default(0)
+  createdAt       DateTime           @default(now())
+
+  quiz       Quiz        @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  competency Competency? @relation(fields: [competencyId], references: [id], onDelete: SetNull)
+  responses  QuestionResponse[]
+
+  @@map("quiz_questions")
+}
+
+model QuizAttempt {
+  id             String        @id @default(uuid())
+  quizId         String
+  userId         String
+  startedAt      DateTime      @default(now())
+  completedAt    DateTime?
+  score          Float?
+  accuracy       Float?
+  correctCount   Int           @default(0)
+  incorrectCount Int           @default(0)
+  status         AttemptStatus @default(IN_PROGRESS)
+  beforeLevels   Json? // { [competencyId]: levelAtStart } snapshot for before/after display
+  performanceJson Json? // full computed performance report (competency-wise, difficulty-wise, etc.)
+
+  quiz      Quiz               @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses QuestionResponse[]
+
+  @@map("quiz_attempts")
+}
+
+model QuestionResponse {
+  id                   String   @id @default(uuid())
+  assessmentAttemptId  String?
+  quizAttemptId        String?
+  assessmentQuestionId String?
+  quizQuestionId       String?
+  selectedAnswer       Int
+  isCorrect            Boolean
+  difficultyAtTime     QuestionDifficulty?
+  responseTimeMs       Int?
+  createdAt            DateTime @default(now())
+
+  assessmentAttempt  AssessmentAttempt?  @relation(fields: [assessmentAttemptId], references: [id], onDelete: Cascade)
+  quizAttempt        QuizAttempt?        @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
+  assessmentQuestion AssessmentQuestion? @relation(fields: [assessmentQuestionId], references: [id], onDelete: Cascade)
+  quizQuestion       QuizQuestion?       @relation(fields: [quizQuestionId], references: [id], onDelete: Cascade)
+
+  // Defense-in-depth against a double-click / retried request submitting the
+  // same question twice for the same attempt — Postgres treats each NULL as
+  // distinct, so rows for the "other" attempt type (which leave these two
+  // columns null) never collide with each other.
+  @@unique([quizAttemptId, quizQuestionId])
+  @@unique([assessmentAttemptId, assessmentQuestionId])
+  @@map("question_responses")
+}
+
+// ==================== DOCUMENT INTELLIGENCE ====================
+
+model LearningMaterial {
+  id            String           @id @default(uuid())
+  userId        String
+  fileName      String
+  originalName  String
+  fileType      MaterialFileType
+  fileSize      Int
+  filePath      String
+  extractedText String?
+  status        MaterialStatus   @default(UPLOADED)
+  uploadedAt    DateTime         @default(now())
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysis DocumentAnalysis?
+  quizzes  Quiz[]
+
+  @@map("learning_materials")
+}
+
+model DocumentAnalysis {
+  id                 String   @id @default(uuid())
+  materialId         String   @unique
+  summary            String
+  topics             Json // string[]
+  concepts           Json // string[]
+  competencies       Json // string[] competency names identified
+  difficulty         QuestionDifficulty @default(MEDIUM)
+  learningObjectives Json // string[]
+  keyTerms           Json // string[]
+  relevantSections   Json // string[]
+  competencyEvidence Json? // [{ competency, category, evidence, relevance }] — grounding for each detected competency
+  createdAt          DateTime @default(now())
+
+  material LearningMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@map("document_analyses")
+}
+
+// ==================== COMPETENCY GAP & RECOMMENDATIONS ====================
+
+model SkillGap {
+  id             String        @id @default(uuid())
+  userId         String
+  competencyId   String
+  currentLevel   Int
+  requiredLevel  Int
+  gap            Int
+  status         GapStatus
+  priority       PriorityLevel
+  calculatedAt   DateTime      @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, competencyId])
+  @@map("skill_gaps")
+}
+
+model LearningRecommendation {
+  id                   String        @id @default(uuid())
+  userId               String
+  competencyId         String
+  courseId             String?
+  reason               String
+  currentLevel         Int
+  requiredLevel        Int
+  expectedImprovement  Int
+  difficulty           CourseLevel
+  estimatedDurationHrs Int
+  priorityRank         Int // 1 = highest priority
+  createdAt            DateTime      @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competency Competency  @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  course     Course?     @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  progress   LearningProgress[]
+
+  @@map("learning_recommendations")
+}
+
+// ==================== iGOT PROTOTYPE CATALOG ====================
+
+model Course {
+  id           String      @id @default(uuid())
+  title        String
+  description  String
+  competencyId String
+  level        CourseLevel @default(BEGINNER)
+  durationHrs  Int
+  source       String      @default("Prototype iGOT Catalog")
+  url          String?
+  createdAt    DateTime    @default(now())
+
+  competency      Competency               @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  recommendations LearningRecommendation[]
+  progress        LearningProgress[]
+
+  @@map("courses")
+}
+
+model LearningProgress {
+  id               String         @id @default(uuid())
+  userId           String
+  competencyId     String?
+  recommendationId String?
+  courseId         String?
+  status           ProgressStatus @default(NOT_STARTED)
+  progressPercent  Int            @default(0)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  updatedAt        DateTime       @updatedAt
+
+  user           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competency     Competency?              @relation(fields: [competencyId], references: [id], onDelete: SetNull)
+  recommendation LearningRecommendation?  @relation(fields: [recommendationId], references: [id], onDelete: SetNull)
+  course         Course?                  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@map("learning_progress")
+}

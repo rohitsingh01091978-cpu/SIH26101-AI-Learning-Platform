@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# env files (never commit secrets)
+.env
+.env.local
+!.env.example
+
+# build output
+client/dist/
+server/dist/
+
+# uploads (user-generated at runtime)
+server/uploads/*
+!server/uploads/.gitkeep
+
+# logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
