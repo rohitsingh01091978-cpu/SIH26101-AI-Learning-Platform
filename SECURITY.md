@@ -5,6 +5,14 @@
 - Sessions: stateless HS256 JWT (`sub`, `role`), signed with `JWT_SECRET` (env only), lifetime `JWT_EXPIRES_IN` (default `7d`). Verification pins the algorithm; the user's role is always re-read from the database.
 - Login/register responses: generic `Invalid email or password.` (401); malformed input returns 400 with field/message pairs only (submitted values are never echoed).
 
+## Google sign-in
+Real OAuth 2.0 / OpenID Connect (authorization code + PKCE) via `google-auth-library`; setup in `docs/google-oauth-setup.md`.
+- `state`, `nonce` and the PKCE verifier are tied to the browser by a signed HttpOnly `SameSite=Lax` cookie; the ID token's signature, issuer, audience, expiry, nonce and `email_verified` are all checked. Only Google's verified `sub`/`email` are trusted.
+- Google sign-up always creates a `LEARNER`. Admins are provisioned only by the seed script.
+- A verified Google email matching an existing email/password account is **not** signed in automatically (registration does not verify emails, so that would allow account pre-registration takeover). The user must enter that account's password once to link Google (rate limited like a login).
+- After Google, the backend redirects with a one-time 60-second code in the URL fragment; the frontend exchanges it for the normal JWT. The JWT is never in a URL. `GOOGLE_CLIENT_SECRET` exists only in the server environment.
+- Google-only accounts have no password (`password` is NULL) and cannot use password login.
+
 ## Rate limiting (`server/src/middleware/rateLimiters.js`)
 Only auth endpoints are limited; only failed logins count; blocks expire by themselves (HTTP 429 + `Retry-After`).
 
@@ -14,6 +22,7 @@ Only auth endpoints are limited; only failed logins count; blocks expire by them
 | `LOGIN_RATE_LIMIT_MAX` | 5 | failed logins per IP + email per window |
 | `LOGIN_IP_RATE_LIMIT_MAX` | 30 | failed logins per IP per window |
 | `REGISTER_RATE_LIMIT_MAX` | 20 | sign-ups per IP per hour |
+| `GOOGLE_RATE_LIMIT_MAX` | 60 | Google flow requests per IP per window (linking also uses `LOGIN_RATE_LIMIT_MAX` failed attempts) |
 
 The store is in memory (single instance; resets on restart).
 

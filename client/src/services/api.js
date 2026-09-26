@@ -10,6 +10,10 @@ function resolveBaseUrl() {
   return raw.endsWith('/api') ? raw : `${raw}/api`;
 }
 
+// Full URL of the backend endpoint that starts Google sign-in. It is a normal
+// browser navigation (an <a href>), not an XHR: the user leaves for Google's own page.
+export const googleLoginUrl = `${resolveBaseUrl()}/auth/google`;
+
 const api = axios.create({
   baseURL: resolveBaseUrl(),
 });

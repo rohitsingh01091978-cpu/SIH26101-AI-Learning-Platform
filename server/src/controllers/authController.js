@@ -85,8 +85,10 @@ const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-  const isValid = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
-  if (!user || !isValid) {
+  // Google-only accounts have no password: they can never pass this check, and
+  // get the same generic error (and the same timing) as any other failure.
+  const isValid = await bcrypt.compare(password, (user && user.password) || DUMMY_HASH);
+  if (!user || !user.password || !isValid) {
     throw new ApiError(401, 'Invalid email or password.');
   }
 

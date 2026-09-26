@@ -14,7 +14,7 @@
     "seed": "node prisma/seed.js",
     "postinstall": "prisma generate",
     "start:prod": "prisma migrate deploy && node src/server.js",
-    "test": "node --test test/auth.test.js",
+    "test": "node --test test/auth.test.js test/google.test.js",
     "test:flow": "node --test test/flow.test.js"
   },
   "prisma": {
@@ -28,6 +28,7 @@
     "express": "^4.21.0",
     "express-rate-limit": "^8.7.0",
     "express-validator": "^7.2.0",
+    "google-auth-library": "^10.9.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.8.0",

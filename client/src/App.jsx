@@ -6,6 +6,8 @@ import AppLayout from './layouts/AppLayout.jsx';
 import AuthLayout from './layouts/AuthLayout.jsx';
 
 import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
+import GoogleCallback from './pages/GoogleCallback.jsx';
 import LearnerDashboard from './pages/LearnerDashboard.jsx';
 import Profile from './pages/Profile.jsx';
 import CompetencyIntelligence from './pages/CompetencyIntelligence.jsx';
@@ -35,6 +37,8 @@ export default function App() {
 
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/auth/callback" element={<GoogleCallback />} />
       </Route>
 
       <Route

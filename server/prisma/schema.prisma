@@ -87,9 +87,14 @@ enum ProgressStatus {
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
-  password  String
+  // Null for accounts that only sign in with Google.
+  password  String?
   name      String
   role      Role     @default(LEARNER)
+  // Provider the account was created with: "local" (email/password) or "google".
+  authProvider String @default("local")
+  // Google's stable account id (the OIDC "sub" claim). Set once Google sign-in is linked.
+  googleId  String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -61,7 +61,29 @@ const registerLimiter = rateLimit({
   handler: tooManyAttempts,
 });
 
+// Google sign-in endpoints: every request counts (each one triggers work against Google or the DB).
+const googleFlowLimiter = rateLimit({
+  windowMs,
+  limit: toInt(process.env.GOOGLE_RATE_LIMIT_MAX, 60),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: tooManyAttempts,
+});
+
+// Linking Google to an existing account verifies that account's password, so it is
+// brute-force limited like a login: failed attempts only, per IP + link token.
+const googleLinkLimiter = rateLimit({
+  ...base,
+  limit: toInt(process.env.LOGIN_RATE_LIMIT_MAX, 5),
+  keyGenerator: (req) => {
+    const token = req.body && typeof req.body.linkToken === 'string' ? req.body.linkToken.slice(-32) : '';
+    return `${ipKeyGenerator(req.ip)}|link|${token}`;
+  },
+});
+
 module.exports = {
   loginLimiters: [loginIpLimiter, loginAccountLimiter],
   registerLimiter,
+  googleFlowLimiter,
+  googleLinkLimiter,
 };

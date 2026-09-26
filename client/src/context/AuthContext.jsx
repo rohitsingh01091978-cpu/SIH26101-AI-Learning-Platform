@@ -50,13 +50,20 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  // Used after registration and Google sign-in, which already hold a fresh token + user.
+  const establishSession = useCallback((token, sessionUser, remember = true) => {
+    saveSession(token, sessionUser, remember);
+    setUser(sessionUser);
+    return sessionUser;
+  }, []);
+
   const logout = useCallback(() => {
     clearSession();
     setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, login, logout, establishSession }}>{children}</AuthContext.Provider>
   );
 }
 
