@@ -6,6 +6,7 @@ import ErrorState from '../components/ErrorState.jsx';
 import Badge from '../components/Badge.jsx';
 import { SkeletonKPIRow, SkeletonChart } from '../components/Skeleton.jsx';
 import CompetencyBarChart from '../charts/CompetencyBarChart.jsx';
+import { CHART } from '../charts/theme.jsx';
 import { getAdminDashboard } from '../services/adminService';
 import { getErrorMessage } from '../services/api';
 
@@ -103,7 +104,7 @@ export default function AdminDashboard() {
           <p className="section-eyebrow mb-1">Organization-wide</p>
           <h2 className="mb-4 font-display text-sm font-bold text-ink-900">Top skill gaps (avg. across learners)</h2>
           {data.topSkillGaps.length ? (
-            <CompetencyBarChart data={data.topSkillGaps.map((g) => ({ name: g.competency, currentLevel: g.averageGap }))} color="#dc2626" />
+            <CompetencyBarChart data={data.topSkillGaps.map((g) => ({ name: g.competency, currentLevel: g.averageGap }))} color={CHART.warning} />
           ) : (
             <p className="text-sm text-ink-500">No data yet.</p>
           )}
@@ -111,7 +112,7 @@ export default function AdminDashboard() {
         <div className="card">
           <p className="section-eyebrow mb-1">By category</p>
           <h2 className="mb-4 font-display text-sm font-bold text-ink-900">Competency distribution</h2>
-          {distChartData.length ? <CompetencyBarChart data={distChartData} color="#4338ca" /> : <p className="text-sm text-ink-500">No data yet.</p>}
+          {distChartData.length ? <CompetencyBarChart data={distChartData} color={CHART.current} /> : <p className="text-sm text-ink-500">No data yet.</p>}
         </div>
       </div>
 

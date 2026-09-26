@@ -79,6 +79,14 @@ export default function AIAssistant() {
     if (open) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, loading, open, keyboardInset]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    textareaRef.current?.focus();
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
   const historyFor = (list) =>
     list
       .filter((m) => m.id !== 'welcome' && !m.error && (m.role === 'user' || m.role === 'assistant'))
@@ -121,7 +129,7 @@ export default function AIAssistant() {
               : "I couldn't get an answer just now. Please check your connection and try again.";
         setMessages((m) => [
           ...m,
-          { id: `e${nextId.current++}`, role: 'assistant', text: friendly, time: new Date(), error: true, retryText: status === 400 || quotaReached ? null : text },
+          { id: `e${nextId.current++}`, role: 'assistant', text: friendly, time: new Date(), error: true, quota: quotaReached, retryText: status === 400 || quotaReached ? null : text },
         ]);
       } finally {
         setLoading(false);
@@ -167,6 +175,7 @@ export default function AIAssistant() {
           <div className="absolute inset-0 bg-ink-950/30 animate-fade-in" onClick={() => setOpen(false)} />
           <div
             role="dialog"
+            aria-modal="true"
             aria-label="Karmayogi AI Assistant"
             className="relative flex h-full w-full max-w-sm flex-col bg-white shadow-popover animate-slide-in-right sm:max-w-md"
           >
@@ -180,7 +189,7 @@ export default function AIAssistant() {
                   <p className="text-[11px] text-ink-500">Grounded in your live competency data</p>
                 </div>
               </div>
-              <button onClick={() => setOpen(false)} aria-label="Close assistant" className="text-ink-400 hover:text-ink-700">
+              <button onClick={() => setOpen(false)} aria-label="Close assistant" className="rounded-md p-1 text-ink-400 hover:bg-surface-muted hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
@@ -190,7 +199,7 @@ export default function AIAssistant() {
                 <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                   <div
                     className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                      m.role === 'user' ? 'bg-ink-200 text-ink-700' : m.error ? 'bg-danger-50 text-danger-700' : 'bg-primary-50 text-primary-700'
+                      m.role === 'user' ? 'bg-ink-200 text-ink-700' : m.quota ? 'bg-warning-50 text-warning-700' : m.error ? 'bg-danger-50 text-danger-700' : 'bg-primary-50 text-primary-700'
                     }`}
                   >
                     {m.role === 'user' ? <User size={12} /> : m.error ? <AlertCircle size={12} /> : <Sparkles size={12} />}
@@ -205,9 +214,11 @@ export default function AIAssistant() {
                       className={`whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm leading-relaxed ${
                         m.role === 'user'
                           ? 'bg-primary-600 text-white'
-                          : m.error
-                            ? 'bg-danger-50 text-danger-700'
-                            : 'bg-surface-subtle text-ink-800'
+                          : m.quota
+                            ? 'border border-warning-200 bg-warning-50 text-warning-800'
+                            : m.error
+                              ? 'border border-danger-200 bg-danger-50 text-danger-800'
+                              : 'bg-surface-subtle text-ink-800'
                       }`}
                     >
                       {m.text}
@@ -221,7 +232,7 @@ export default function AIAssistant() {
                         <RotateCw size={11} /> Retry
                       </button>
                     )}
-                    <span className="mt-0.5 text-[10px] text-ink-400">
+                    <span className="mt-0.5 text-[11px] text-ink-500">
                       {timeLabel(m.time)}
                       {providerLabel(m) ? ` · ${providerLabel(m)}` : ''}
                     </span>
@@ -230,7 +241,7 @@ export default function AIAssistant() {
               ))}
               {loading && (
                 <div className="flex items-center gap-2 text-xs text-ink-500" role="status">
-                  <Loader2 size={13} className="animate-spin" /> Thinking...
+                  <Loader2 size={13} className="animate-spin" /> Generating answer…
                 </div>
               )}
               <div ref={endRef} />
@@ -276,7 +287,7 @@ export default function AIAssistant() {
                   <Send size={16} />
                 </button>
               </form>
-              <p className="mt-1.5 text-[10px] text-ink-400">Enter to send · Shift+Enter for a new line</p>
+              <p className="mt-1.5 text-[11px] text-ink-500">Enter to send · Shift+Enter for a new line</p>
             </div>
           </div>
         </div>

@@ -84,7 +84,7 @@ export default function Login() {
   };
 
   const errorBox = error && (
-    <div role="alert" className="flex items-start gap-2 rounded-md bg-danger-50 px-3 py-2 text-sm text-danger-700">
+    <div id="form-error" role="alert" className="alert-error">
       <AlertCircle size={16} className="mt-0.5 shrink-0" />
       <span>{error}</span>
     </div>
@@ -108,6 +108,8 @@ export default function Login() {
                 autoComplete="username"
                 autoFocus
                 className="input"
+                aria-invalid={/email address/i.test(error) ? 'true' : undefined}
+                aria-describedby={/email address/i.test(error) ? 'form-error' : undefined}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -162,6 +164,8 @@ export default function Login() {
                   autoComplete="current-password"
                   autoFocus
                   className="input pr-10"
+                  aria-invalid={error ? 'true' : undefined}
+                  aria-describedby={error ? 'form-error' : undefined}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"

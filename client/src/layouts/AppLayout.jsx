@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   UserCircle,
@@ -76,6 +76,7 @@ export default function AppLayout() {
 
   return (
     <div className="h-screen flex overflow-hidden bg-surface-subtle">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <aside className={`hidden md:flex md:flex-col md:h-screen md:shrink-0 border-r border-ink-200 bg-white transition-all duration-200 ${collapsed ? 'md:w-[72px]' : 'md:w-64'}`}>
         <SidebarContent
           navItems={navItems}
@@ -88,7 +89,7 @@ export default function AppLayout() {
       </aside>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
           <div className="absolute inset-0 bg-ink-950/40" onClick={() => setMobileOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-64 bg-white shadow-popover animate-slide-in-right">
             <SidebarContent
@@ -104,14 +105,17 @@ export default function AppLayout() {
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-ink-200 bg-white px-4 py-3 md:hidden">
-          <button onClick={() => setMobileOpen(true)} className="text-ink-700">
+          <button onClick={() => setMobileOpen(true)} className="rounded-md p-1 text-ink-700" aria-label="Open navigation menu">
             <Menu size={22} />
           </button>
-          <span className="font-display text-sm font-bold text-ink-900">AI Learning Platform</span>
+          <span className="flex items-center gap-2 font-display text-sm font-bold text-ink-900">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-primary-600 to-primary-800 text-white"><BrainCircuit size={15} /></span>
+            AI Learning Platform
+          </span>
           <div className="w-6" />
         </header>
 
-        <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto">
+        <main id="main-content" tabIndex={-1} className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto focus:outline-none">
           <Outlet />
         </main>
       </div>
@@ -131,7 +135,7 @@ function SidebarContent({ navItems, user, onLogout, onNavigate, collapsed = fals
         {!collapsed && (
           <div className="min-w-0">
             <p className="truncate font-display text-sm font-bold leading-tight text-ink-900">AI Learning Platform</p>
-            <p className="truncate text-[11px] leading-tight text-ink-500">Competency Intelligence · SIH26101</p>
+            <p className="truncate text-[11px] leading-tight text-ink-500">Competency Intelligence</p>
           </div>
         )}
       </div>
@@ -148,19 +152,25 @@ function SidebarContent({ navItems, user, onLogout, onNavigate, collapsed = fals
               className={({ isActive }) =>
                 `group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   collapsed ? 'justify-center' : ''
-                } ${isActive ? 'bg-primary-50 text-primary-700' : 'text-ink-600 hover:bg-surface-muted hover:text-ink-900'}`
+                } ${isActive ? 'bg-primary-50 font-semibold text-primary-700' : 'text-ink-600 hover:bg-surface-muted hover:text-ink-900'}`
               }
             >
-              <Icon size={18} className="shrink-0" />
-              {!collapsed && <span className="truncate">{label}</span>}
-              {showBadge && (
-                <span
-                  className={`flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-600 px-1 text-[10px] font-bold text-white ${
-                    collapsed ? 'absolute -right-0.5 -top-0.5' : 'ml-auto'
-                  }`}
-                >
-                  {highPriorityCount}
-                </span>
+              {({ isActive }) => (
+                <>
+                  {isActive && <span aria-hidden="true" className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary-600" />}
+                  <Icon size={18} className="shrink-0" aria-hidden="true" />
+                  {!collapsed && <span className="truncate">{label}</span>}
+                  {showBadge && (
+                    <span
+                      aria-label={`${highPriorityCount} high-priority gaps`}
+                      className={`flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-600 px-1 text-[10px] font-bold text-white ${
+                        collapsed ? 'absolute -right-0.5 -top-0.5' : 'ml-auto'
+                      }`}
+                    >
+                      {highPriorityCount}
+                    </span>
+                  )}
+                </>
               )}
             </NavLink>
           );
@@ -170,6 +180,7 @@ function SidebarContent({ navItems, user, onLogout, onNavigate, collapsed = fals
       {onToggleCollapse && (
         <button
           onClick={onToggleCollapse}
+          aria-label="Collapse sidebar"
           className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-md border border-ink-200 py-1.5 text-xs font-medium text-ink-500 hover:bg-surface-muted"
         >
           {collapsed ? <ChevronsRight size={14} /> : (<><ChevronsLeft size={14} /> Collapse</>)}
@@ -180,10 +191,18 @@ function SidebarContent({ navItems, user, onLogout, onNavigate, collapsed = fals
         {!collapsed && (
           <div className="mb-2 flex items-center justify-between px-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Account</span>
-            <button className="relative text-ink-400 hover:text-ink-700" title="Notifications">
-              <Bell size={15} />
-              {highPriorityCount > 0 && <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-danger-500" />}
-            </button>
+            {highPriorityCount > 0 && (
+              <Link
+                to="/skill-gaps"
+                onClick={onNavigate}
+                className="relative rounded p-0.5 text-ink-400 hover:text-ink-700"
+                title={`${highPriorityCount} high-priority skill gaps`}
+                aria-label={`${highPriorityCount} high-priority skill gaps - view skill gaps`}
+              >
+                <Bell size={15} />
+                <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-danger-500" />
+              </Link>
+            )}
           </div>
         )}
         <div className={`mb-3 flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}>

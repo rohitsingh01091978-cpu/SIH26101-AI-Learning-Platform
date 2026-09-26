@@ -12,6 +12,18 @@
   h1, h2, h3, h4 {
     font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   }
+  /* One consistent, visible keyboard focus ring for every interactive element. */
+  a:focus-visible, button:focus-visible, select:focus-visible, summary:focus-visible, [role='button']:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-white;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
@@ -26,20 +38,38 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-primary-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-md border border-ink-300 bg-white px-4 py-2 text-sm font-medium text-ink-700 transition-all hover:bg-surface-muted active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-md border border-ink-300 bg-white px-4 py-2 text-sm font-medium text-ink-700 transition-all hover:bg-surface-muted active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-ink-600 transition-colors hover:bg-surface-muted hover:text-ink-900;
+    @apply inline-flex min-h-[34px] items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-ink-600 transition-colors hover:bg-surface-muted hover:text-ink-900;
   }
   .btn-accent {
-    @apply inline-flex items-center justify-center gap-2 rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .input {
-    @apply w-full rounded-md border border-ink-300 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 transition-shadow focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100;
+    @apply w-full min-h-[38px] rounded-md border border-ink-300 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 transition-shadow focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-100 disabled:text-ink-500;
+  }
+  .input[aria-invalid='true'] {
+    @apply border-danger-500 focus:border-danger-500 focus:ring-danger-100;
+  }
+  .field-error {
+    @apply mt-1.5 flex items-start gap-1.5 text-xs font-medium text-danger-700;
+  }
+  .alert-error {
+    @apply flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-800;
+  }
+  .skip-link {
+    @apply absolute left-3 top-3 z-[100] -translate-y-16 rounded-md bg-primary-700 px-3 py-2 text-sm font-medium text-white shadow-popover transition-transform focus:translate-y-0;
+  }
+  .card-title {
+    @apply font-display text-sm font-bold text-ink-900;
+  }
+  .meta-label {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-ink-500;
   }
   .label {
     @apply block text-xs font-semibold uppercase tracking-wide text-ink-500 mb-1.5;

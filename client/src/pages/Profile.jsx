@@ -1,23 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { Save, CheckCircle2 } from 'lucide-react';
+import { Save, CheckCircle2, UserCircle, Briefcase, Target } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import PasswordCard from '../components/PasswordCard.jsx';
 import { getProfile, updateProfile } from '../services/profileService';
 import { getErrorMessage } from '../services/api';
-import { maskEmail } from '../utils/display';
+import { maskEmail, roleLabel } from '../utils/display';
+import { useAuth } from '../context/AuthContext.jsx';
 
-const FIELDS = [
-  { key: 'name', label: 'Full name' },
-  { key: 'department', label: 'Department' },
-  { key: 'organization', label: 'Organization' },
-  { key: 'experience', label: 'Experience (years)', type: 'number' },
-  { key: 'currentRole', label: 'Current role' },
-  { key: 'targetRole', label: 'Target role' },
+// The same fields as before, grouped so the page reads as sections instead of one long form.
+const SECTIONS = [
+  {
+    title: 'Personal details',
+    icon: UserCircle,
+    fields: [{ key: 'name', label: 'Full name' }],
+  },
+  {
+    title: 'Work profile',
+    icon: Briefcase,
+    fields: [
+      { key: 'department', label: 'Department' },
+      { key: 'organization', label: 'Organization' },
+      { key: 'experience', label: 'Experience (years)', type: 'number' },
+      { key: 'currentRole', label: 'Current role' },
+    ],
+  },
+  {
+    title: 'Career target',
+    icon: Target,
+    fields: [{ key: 'targetRole', label: 'Target role' }],
+  },
 ];
 
 export default function Profile() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -88,43 +105,68 @@ export default function Profile() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="card space-y-4">
-        <div className="rounded-lg bg-surface-subtle px-3 py-2 text-sm text-ink-700" title="Your sign-in email is partly hidden for privacy">
-          <span className="text-ink-500">Signed in as </span>{maskEmail(form.email)}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="card flex flex-wrap items-center justify-between gap-2" title="Your sign-in email is partly hidden for privacy">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-900 text-sm font-semibold text-white" aria-hidden="true">
+              {(form.name || '?').slice(0, 1).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink-900">{form.name}</p>
+              <p className="truncate text-xs text-ink-500">Signed in as {maskEmail(form.email)}</p>
+            </div>
+          </div>
+          <span className="badge bg-primary-50 text-primary-700">{roleLabel(user?.role)}</span>
         </div>
 
-        {FIELDS.map((field) => (
-          <div key={field.key}>
-            <label className="label">{field.label}</label>
-            <input
-              type={field.type || 'text'}
-              className="input"
-              value={form[field.key] ?? ''}
-              onChange={(e) => handleChange(field.key, e.target.value)}
-            />
-          </div>
+        {SECTIONS.map((section) => (
+          <fieldset key={section.title} className="card">
+            <legend className="sr-only">{section.title}</legend>
+            <h2 className="mb-4 flex items-center gap-2 card-title" aria-hidden="true">
+              <section.icon size={16} className="text-primary-600" /> {section.title}
+            </h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {section.fields.map((field) => (
+                <div key={field.key}>
+                  <label className="label" htmlFor={`profile-${field.key}`}>{field.label}</label>
+                  <input
+                    id={`profile-${field.key}`}
+                    type={field.type || 'text'}
+                    className="input"
+                    value={form[field.key] ?? ''}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          </fieldset>
         ))}
 
-        <div>
-          <label className="label">Learning goals</label>
+        <div className="card">
+          <h2 className="mb-1 card-title">Learning goals</h2>
+          <p className="mb-3 text-xs text-ink-500">Your goals help the platform prioritise which competencies to build first.</p>
+          <label className="sr-only" htmlFor="profile-learningGoals">Learning goals</label>
           <textarea
-            className="input min-h-[90px]"
+            id="profile-learningGoals"
+            className="input min-h-[96px]"
             value={form.learningGoals ?? ''}
             onChange={(e) => handleChange('learningGoals', e.target.value)}
           />
         </div>
 
-        {error && <p className="text-sm text-danger-600">{error}</p>}
+        {error && <p role="alert" className="alert-error">{error}</p>}
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={saving} className="btn-primary">
             <Save size={16} /> {saving ? 'Saving...' : 'Save changes'}
           </button>
-          {saved && (
-            <span className="flex items-center gap-1 text-sm text-success-600">
-              <CheckCircle2 size={16} /> Saved
-            </span>
-          )}
+          <span role="status" aria-live="polite">
+            {saved && (
+              <span className="flex items-center gap-1 text-sm text-success-600">
+                <CheckCircle2 size={16} /> Saved
+              </span>
+            )}
+          </span>
         </div>
       </form>
 

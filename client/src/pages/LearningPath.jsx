@@ -14,7 +14,8 @@ import { catalogLabel } from '../utils/display';
 import { startProgress } from '../services/progressService';
 import { getErrorMessage } from '../services/api';
 
-const DIFFICULTY_BADGE = { ADVANCED: 'HIGH', INTERMEDIATE: 'MEDIUM', BEGINNER: 'LOW' };
+// Course level is not a warning, so it is shown in neutral/brand tones (not amber/red).
+const DIFFICULTY_BADGE = { ADVANCED: 'ADVANCED', INTERMEDIATE: 'INTERMEDIATE', BEGINNER: 'BEGINNER' };
 
 export default function LearningPath() {
   const toast = useToast();
@@ -56,7 +57,7 @@ export default function LearningPath() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl space-y-4">
+      <div className="max-w-3xl space-y-4 lg:max-w-4xl">
         <SkeletonCard lines={3} />
         <SkeletonCard lines={3} />
       </div>
@@ -103,7 +104,7 @@ export default function LearningPath() {
   }));
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl lg:max-w-4xl">
       <PageHeader
         eyebrow="Generated for you"
         title="Your Personalized Learning Path"
