@@ -10,6 +10,7 @@ import WhyEvidence from '../components/WhyEvidence.jsx';
 import { SkeletonCard } from '../components/Skeleton.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { getLearningPath } from '../services/learningPathService';
+import { catalogLabel } from '../utils/display';
 import { startProgress } from '../services/progressService';
 import { getErrorMessage } from '../services/api';
 
@@ -77,7 +78,7 @@ export default function LearningPath() {
             <div className="flex items-center gap-2 text-sm text-ink-700">
               <GraduationCap size={16} className="text-primary-600" />
               <span className="font-medium">{item.course.title}</span>
-              <span className="text-xs text-ink-500">({item.course.source})</span>
+              <span className="text-xs text-ink-500">({catalogLabel(item.course.source)})</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 text-xs text-ink-500">

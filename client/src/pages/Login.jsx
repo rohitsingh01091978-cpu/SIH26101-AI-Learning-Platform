@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LogIn, AlertCircle, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -19,15 +19,26 @@ export default function Login() {
   const { login } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const googleError = searchParams.get('google_error');
 
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState(googleError ? GOOGLE_ERRORS[googleError] || GOOGLE_ERRORS.failed : '');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // The backend reports a failed Google sign-in as /login?google_error=<reason>. Show the friendly message once and
+  // remove the parameter from the address, so a refresh or the Back button never brings a stale error back.
+  useEffect(() => {
+    if (!googleError) return;
+    setError(GOOGLE_ERRORS[googleError] || GOOGLE_ERRORS.failed);
+    setSearchParams({}, { replace: true });
+  }, [googleError, setSearchParams]);
+
+  // A new attempt (Google or password) always starts with a clean slate.
+  const clearError = () => setError('');
 
   const handleContinue = (e) => {
     e.preventDefault();
@@ -98,7 +109,10 @@ export default function Login() {
                 autoFocus
                 className="input"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (error) clearError();
+                }}
                 placeholder="Enter your email"
               />
             </div>
@@ -117,7 +131,7 @@ export default function Login() {
             <div className="h-px flex-1 bg-ink-200" />
           </div>
 
-          <GoogleButton />
+          <GoogleButton onClick={clearError} />
 
           <p className="mt-5 text-center text-sm text-ink-500">
             Don&apos;t have an account?{' '}
@@ -174,7 +188,7 @@ export default function Login() {
             {/* Static hint shown to everyone, so it cannot reveal which emails are Google-only. */}
             <p className="text-xs leading-relaxed text-ink-500">
               Signed up with Google?{' '}
-              <a href={googleLoginUrl} className="font-medium text-primary-700 hover:underline">Continue with Google</a>
+              <a href={googleLoginUrl} onClick={clearError} className="font-medium text-primary-700 hover:underline">Continue with Google</a>
               , then you can add a password from your Profile.
             </p>
 
@@ -187,7 +201,7 @@ export default function Login() {
       )}
 
       <p className="mt-6 border-t border-ink-200 pt-4 text-center text-[11px] text-ink-400">
-        SIH26101 Prototype &bull; For demonstration purposes
+        AI-Powered Learning &amp; Competency Intelligence Platform
       </p>
     </div>
   );

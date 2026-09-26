@@ -6,6 +6,7 @@ import ErrorState from '../components/ErrorState.jsx';
 import PasswordCard from '../components/PasswordCard.jsx';
 import { getProfile, updateProfile } from '../services/profileService';
 import { getErrorMessage } from '../services/api';
+import { maskEmail } from '../utils/display';
 
 const FIELDS = [
   { key: 'name', label: 'Full name' },
@@ -78,17 +79,19 @@ export default function Profile() {
       <PageHeader
         title="My Profile"
         description="This information drives your personalized learning recommendations."
-        action={isDemoAccount ? <span className="badge bg-warning-50 text-warning-700">DEMO PROFILE</span> : null}
+        action={isDemoAccount ? <span className="badge bg-warning-50 text-warning-700">SAMPLE PROFILE</span> : null}
       />
 
       {isDemoAccount && (
         <div className="mb-4 rounded-md bg-warning-50 px-3.5 py-2.5 text-xs text-warning-800">
-          This is a seeded demo account for the SIH26101 prototype — it does not represent a real government employee.
+          This is a sample account and does not represent a real government employee.
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="card space-y-4">
-        <div className="rounded-lg bg-surface-subtle px-3 py-2 text-sm text-ink-700">{form.email}</div>
+        <div className="rounded-lg bg-surface-subtle px-3 py-2 text-sm text-ink-700" title="Your sign-in email is partly hidden for privacy">
+          <span className="text-ink-500">Signed in as </span>{maskEmail(form.email)}
+        </div>
 
         {FIELDS.map((field) => (
           <div key={field.key}>

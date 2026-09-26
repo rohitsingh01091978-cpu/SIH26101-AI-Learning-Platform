@@ -184,10 +184,10 @@ async function buildLearnerContext(userId) {
         competencies: asArray(m.analysis.competencies),
       })),
     },
-    // Courses are always read from the app's own prototype catalog table: the app never calls a live iGOT API, so nothing is ever presented as live.
+    // Courses are always read from the app's own iGOT-aligned catalog table: the app never calls a live iGOT API, so nothing is ever presented as live.
     igot: {
       live: false,
-      label: 'Prototype iGOT Catalog',
+      label: 'iGOT-aligned Training Catalog',
     },
   };
 }

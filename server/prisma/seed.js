@@ -184,7 +184,7 @@ async function main() {
     competencyRecords[c.name] = rec;
   }
 
-  console.log('Seeding prototype iGOT courses...');
+  console.log('Seeding iGOT-aligned training catalog...');
   await prisma.course.deleteMany({});
   for (const course of IGOT_COURSES) {
     const competency = competencyRecords[course.competency];
@@ -196,7 +196,7 @@ async function main() {
         competencyId: competency.id,
         level: course.level,
         durationHrs: course.durationHrs,
-        source: 'Prototype iGOT Catalog',
+        source: 'iGOT-aligned Training Catalog',
       },
     });
   }

@@ -6,6 +6,7 @@ import EmptyState from '../components/EmptyState.jsx';
 import Badge from '../components/Badge.jsx';
 import { SkeletonList } from '../components/Skeleton.jsx';
 import { getCourses, searchCourses } from '../services/igotService';
+import { catalogLabel } from '../utils/display';
 import { getSkillGaps } from '../services/skillGapService';
 import { getErrorMessage } from '../services/api';
 
@@ -29,7 +30,7 @@ function CourseCard({ c, recommended }) {
         <span className="flex items-center gap-1">
           <Clock size={12} /> {c.durationHrs}h
         </span>
-        <span className="truncate">{c.source}</span>
+        <span className="truncate">{catalogLabel(c.source)}</span>
       </div>
     </div>
   );
@@ -97,16 +98,16 @@ export default function IgotCourses() {
   return (
     <div>
       <PageHeader
-        eyebrow="iGOT Karmayogi Course Discovery"
-        title="Prototype Integration"
-        description="A seeded course catalog mapped to the competency framework, structured so a live iGOT API can be connected without frontend changes."
+        eyebrow="iGOT-aligned Learning Recommendations"
+        title="Training Catalog"
+        description="Courses mapped to the competency framework and structured for integration with the iGOT Karmayogi platform."
       />
 
       <div className="mb-4 flex items-start gap-2 rounded-md bg-primary-50 px-3 py-2.5 text-xs text-primary-800">
         <Info size={14} className="mt-0.5 shrink-0" />
         <span>
-          Source: <strong>{source || 'Prototype iGOT Catalog'}</strong> — this build does not hold live iGOT Karmayogi API credentials.
-          Course data is clearly-labelled seed data; <code className="rounded bg-white/60 px-1">igotService.js</code> is the single file that would change to call a real API.
+          Source: <strong>{catalogLabel(source)}</strong> — recommendations use the platform&apos;s built-in, iGOT-aligned catalog.
+          A live iGOT Karmayogi connection is not enabled.
         </span>
       </div>
 
