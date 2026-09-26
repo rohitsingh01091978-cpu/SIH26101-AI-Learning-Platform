@@ -5,7 +5,9 @@ const jwt = require('jsonwebtoken');
 const ALGORITHM = 'HS256';
 
 function signToken(user) {
-  return jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET, {
+  // iatMs: issue time with millisecond precision (the standard `iat` claim is whole seconds), so a
+  // password reset can tell sessions created just before it from sign-ins made right after it.
+  return jwt.sign({ sub: user.id, role: user.role, iatMs: Date.now() }, process.env.JWT_SECRET, {
     algorithm: ALGORITHM,
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });

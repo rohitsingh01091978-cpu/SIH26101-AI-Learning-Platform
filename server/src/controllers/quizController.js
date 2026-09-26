@@ -1,7 +1,8 @@
 const prisma = require('../utils/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { withAIFallback, getAIProvider } = require('../ai');
+const { runCoreAI } = require('../ai');
+const { reserveAiQuota, FEATURES } = require('../services/aiQuota');
 const { clampLevel } = require('../utils/competencyEngine');
 const { computeAndStoreSkillGaps } = require('../services/skillGapService');
 
@@ -51,10 +52,19 @@ const generateQuiz = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'This material has no extracted text to generate questions from.');
   }
 
-  const generated = await withAIFallback('generateMCQs', material.extractedText, {
-    count: Number(count),
-    difficulty,
-  });
+  // Daily quota first (clear 429 if used up), then the AI call.
+  const usage = await reserveAiQuota(req.user.id, FEATURES.GENERATE_MCQS);
+  let generated;
+  let aiProvider;
+  try {
+    ({ result: generated, provider: aiProvider } = await usage.run(() =>
+      runCoreAI('generateMCQs', material.extractedText, { count: Number(count), difficulty })
+    ));
+    await usage.succeed({ provider: aiProvider });
+  } catch (err) {
+    await usage.fail(err);
+    throw err;
+  }
 
   if (!generated.length) {
     throw new ApiError(422, 'Could not generate any questions from this material.');
@@ -97,7 +107,7 @@ const generateQuiz = asyncHandler(async (req, res) => {
       createdAt: quiz.createdAt,
     },
     questions: quiz.questions.map(sanitizeQuestion),
-    aiProvider: getAIProvider().name(),
+    aiProvider,
   });
 });
 

@@ -3,6 +3,22 @@
 process.env.NODE_ENV = 'test';
 require('dotenv').config();
 
+// Tests store files in a throw-away directory, never in the real uploads folder / volume.
+const fsSync = require('node:fs');
+const osSync = require('node:os');
+const pathSync = require('node:path');
+if (!process.env.STORAGE_ROOT_FOR_TESTS_SET) {
+  process.env.STORAGE_ROOT = fsSync.mkdtempSync(pathSync.join(osSync.tmpdir(), 'sih-test-storage-'));
+  process.env.STORAGE_ROOT_FOR_TESTS_SET = '1';
+  process.on('exit', () => {
+    try {
+      fsSync.rmSync(process.env.STORAGE_ROOT, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
 const dbUrl = process.env.DATABASE_URL || '';
 const host = (dbUrl.match(/@([^:/?]+)/) || [])[1];
 if (!['localhost', '127.0.0.1'].includes(host)) {

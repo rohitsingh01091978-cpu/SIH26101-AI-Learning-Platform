@@ -7,7 +7,7 @@ const { LEARNER, startServer, request, stop } = require('./helpers');
 const prisma = require('../src/utils/prisma');
 const { signToken } = require('../src/utils/jwt');
 
-const PREFIX = 'google-test-pw-';
+const PREFIX = 'pwsetting-test-';
 let server;
 let base;
 

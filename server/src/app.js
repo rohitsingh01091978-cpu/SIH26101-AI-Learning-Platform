@@ -2,8 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const path = require('path');
-const fs = require('fs');
+const { describeStorage } = require('./storage');
 
 const routes = require('./routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -15,11 +14,6 @@ const app = express();
 // Railway (and most PaaS hosts) terminate TLS at a reverse proxy.
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
-
-const uploadDir = path.join(__dirname, '..', process.env.UPLOAD_DIR || 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 // ---------- Security headers ----------
 // This service only returns JSON (the React app is served by Vercel), so
@@ -65,6 +59,8 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     service: 'SIH26101 AI Learning & Competency Intelligence Platform API',
     aiProvider: process.env.AI_PROVIDER || 'demo',
+    // status word only: never a path
+    storage: describeStorage().configured ? 'configured' : 'not-configured',
     timestamp: new Date().toISOString(),
   });
 });

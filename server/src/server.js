@@ -26,10 +26,41 @@ function validateEnv() {
 validateEnv();
 
 const { app, allowedOrigins } = require('./app');
+const { demoAccountsEnabled } = require('./utils/demoAccounts');
+const { describeStorage, getStorage } = require('./storage');
+
+if (isProduction) {
+  if (process.env.AI_PROVIDER !== 'external') {
+    console.warn('[startup] WARNING: production is running the offline DEMO AI provider. Set AI_PROVIDER=external with AI_API_KEY / AI_BASE_URL / AI_MODEL for real AI.');
+  }
+  if (demoAccountsEnabled()) {
+    console.warn('[startup] WARNING: DEMO_ACCOUNTS_ENABLED=true - demo accounts with publicly documented passwords can sign in.');
+  } else {
+    console.log('[startup] Demo accounts are disabled (default in production).');
+  }
+}
 
 const PORT = process.env.PORT || 5000;
 
+// Verify file storage once at start-up (write/read/delete probe). Never blocks or crashes the server:
+// if storage is unusable, uploads answer 503 and this log says why.
+async function verifyStorage() {
+  const info = describeStorage();
+  if (!info.configured) {
+    console.error('[storage] WARNING: no persistent storage configured - file uploads are disabled. Attach a Railway Volume or set STORAGE_ROOT.');
+    return;
+  }
+  if (!info.persistent) console.warn(`[storage] WARNING: storage is NOT persistent (${info.source}); uploaded files will be lost on redeploy.`);
+  try {
+    await getStorage().healthCheck();
+    console.log(`[storage] OK (source: ${info.source}, persistent: ${info.persistent})`);
+  } catch (err) {
+    console.error(`[storage] ERROR: the storage location is not usable (${err.code || err.message}). File uploads will fail until this is fixed.`);
+  }
+}
+
 const server = app.listen(PORT, () => {
+  verifyStorage();
   console.log(`API server listening on port ${PORT} (${isProduction ? 'production' : 'development'})`);
   console.log(`AI provider: ${process.env.AI_PROVIDER || 'demo'}`);
   console.log(`CORS allowed origins: ${allowedOrigins.join(', ') || '(none)'}`);

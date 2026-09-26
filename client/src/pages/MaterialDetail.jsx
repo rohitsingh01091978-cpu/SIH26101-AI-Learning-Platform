@@ -13,15 +13,18 @@ import {
   Gauge,
   Target,
   CheckCircle2,
+  Download,
+  Trash2,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import Badge from '../components/Badge.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import ProcessingTimeline from '../components/ProcessingTimeline.jsx';
 import CompetencyChainMap from '../components/CompetencyChainMap.jsx';
 import { SkeletonCard } from '../components/Skeleton.jsx';
 import { useToast } from '../context/ToastContext.jsx';
-import { getMaterial, analyzeMaterial } from '../services/materialService';
+import { getMaterial, analyzeMaterial, deleteMaterial, downloadMaterialFile } from '../services/materialService';
 import { generateQuiz } from '../services/quizService';
 import { getErrorMessage } from '../services/api';
 
@@ -55,6 +58,8 @@ export default function MaterialDetail() {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
   const [lastQuiz, setLastQuiz] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [fileBusy, setFileBusy] = useState(false);
   const [genStepIndex, setGenStepIndex] = useState(0);
   const genTimer = useRef(null);
 
@@ -125,7 +130,7 @@ export default function MaterialDetail() {
 
   const timelineSteps = [
     { label: 'Document uploaded', state: 'done' },
-    { label: 'Text extracted', state: material.extractedText ? 'done' : 'pending' },
+    { label: 'Text extracted', state: material.hasExtractedText ? 'done' : 'pending' },
     { label: 'Content analyzed', state: analysis ? 'done' : analyzing ? 'active' : 'pending' },
     { label: 'Topics identified', state: analysis ? 'done' : analyzing ? 'active' : 'pending' },
     { label: 'Competencies mapped', state: analysis ? 'done' : analyzing ? 'active' : 'pending' },
@@ -137,6 +142,38 @@ export default function MaterialDetail() {
     ? lastQuiz.questions.reduce((acc, q) => ({ ...acc, [q.difficulty]: (acc[q.difficulty] || 0) + 1 }), {})
     : null;
   const competencySet = lastQuiz ? [...new Set(lastQuiz.questions.map((q) => q.competency).filter(Boolean))] : [];
+
+  const handleDownload = async () => {
+    setFileBusy(true);
+    try {
+      const blob = await downloadMaterialFile(id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = material.originalName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setFileBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setConfirmDelete(false);
+    setFileBusy(true);
+    try {
+      await deleteMaterial(id);
+      toast.success('Material deleted.');
+      navigate('/materials');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+      setFileBusy(false);
+    }
+  };
 
   const chains = (analysis?.competencyEvidence?.length ? analysis.competencyEvidence : (analysis?.competencies || []).map((c) => ({ competency: c, category: null })))
     .slice(0, 4);
@@ -150,7 +187,31 @@ export default function MaterialDetail() {
       <Link to="/materials" className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-ink-500 hover:text-ink-800">
         <ArrowLeft size={13} /> All materials
       </Link>
-      <PageHeader eyebrow="AI Content Intelligence" title={material.originalName} />
+      <PageHeader
+        eyebrow="AI Content Intelligence"
+        title={material.originalName}
+        action={
+          <>
+            {material.hasStoredFile && (
+              <button onClick={handleDownload} disabled={fileBusy} className="btn-secondary">
+                <Download size={14} /> Download
+              </button>
+            )}
+            <button onClick={() => setConfirmDelete(true)} disabled={fileBusy} className="btn-secondary text-danger-600">
+              <Trash2 size={14} /> Delete
+            </button>
+          </>
+        }
+      />
+      <ConfirmDialog
+        open={confirmDelete}
+        tone="danger"
+        title="Delete this material?"
+        description="The stored file, its extracted text and its AI analysis will be permanently removed. Quizzes you already generated and your results are kept."
+        confirmLabel="Delete"
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+      />
 
       {/* Document intelligence card */}
       <div className="card mb-6">

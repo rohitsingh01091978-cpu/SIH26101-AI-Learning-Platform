@@ -15,6 +15,19 @@ const startProgress = asyncHandler(async (req, res) => {
   const { courseId, competencyId, recommendationId } = req.body;
   if (!courseId) throw new ApiError(400, 'courseId is required.');
 
+  // Reject unknown references cleanly (they used to surface as database errors).
+  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { id: true } });
+  if (!course) throw new ApiError(404, 'Course not found.');
+  if (competencyId) {
+    const competency = await prisma.competency.findUnique({ where: { id: competencyId }, select: { id: true } });
+    if (!competency) throw new ApiError(400, 'competencyId is invalid.');
+  }
+  if (recommendationId) {
+    // A recommendation can only be linked by the learner it belongs to.
+    const rec = await prisma.learningRecommendation.findUnique({ where: { id: recommendationId }, select: { userId: true } });
+    if (!rec || rec.userId !== req.user.id) throw new ApiError(400, 'recommendationId is invalid.');
+  }
+
   const existing = await prisma.learningProgress.findFirst({ where: { userId: req.user.id, courseId } });
   if (existing) {
     return res.json({ success: true, progress: existing });

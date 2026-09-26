@@ -3,6 +3,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { buildLearnerContext } = require('../assistant/learnerContext');
 const { withAIFallbackMeta } = require('../ai');
+const { reserveAiQuota, FEATURES } = require('../services/aiQuota');
 
 const MAX_HISTORY = 6;
 
@@ -34,18 +35,32 @@ const chat = asyncHandler(async (req, res) => {
 
   const message = req.body.message; // already trimmed by the validator
   const history = cleanHistory(req.body.history);
-  const context = await buildLearnerContext(req.user.id);
+
+  // Daily quota (100 messages by default) - clear 429 when used up.
+  const usage = await reserveAiQuota(req.user.id, FEATURES.ASSISTANT_CHAT);
+
+  let context;
+  try {
+    context = await buildLearnerContext(req.user.id);
+  } catch (err) {
+    await usage.fail(err);
+    throw err;
+  }
 
   let outcome;
   try {
-    outcome = await withAIFallbackMeta('answerLearnerQuestion', message, context, history);
+    outcome = await usage.run(() => withAIFallbackMeta('answerLearnerQuestion', message, context, history));
   } catch (err) {
+    await usage.fail(err);
     // Log the reason server-side only; the learner gets a friendly, generic message.
     console.error('[assistant] answer failed:', err && err.message ? err.message : 'unknown error');
     throw new ApiError(503, 'The assistant is temporarily unavailable. Please try again in a moment.');
   }
 
   const { result, provider, fellBack } = outcome;
+  // An offline fallback answer costs nothing and is not the AI model, so it does not use up the quota.
+  if (fellBack) await usage.refund('FALLBACK', provider);
+  else await usage.succeed({ provider });
   res.setHeader('Cache-Control', 'no-store');
   res.json({
     success: true,

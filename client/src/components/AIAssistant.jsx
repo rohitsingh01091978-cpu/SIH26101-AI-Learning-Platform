@@ -50,7 +50,7 @@ function useKeyboardInset(active) {
 
 function providerLabel(m) {
   if (m.provider === 'external') return 'AI model · uses your data';
-  if (m.provider === 'demo') return m.fellBack ? 'Offline demo assistant (AI model unavailable) · your data' : 'Offline demo assistant · your data';
+  if (m.provider === 'demo') return m.fellBack ? 'Fallback response · not from the AI model' : 'Offline demo assistant · your data';
   return null;
 }
 
@@ -111,15 +111,17 @@ export default function AIAssistant() {
         ]);
       } catch (err) {
         const status = err?.response?.status;
-        const friendly =
-          status === 429
+        const quotaReached = err?.response?.data?.code === 'AI_QUOTA_EXCEEDED';
+        const friendly = quotaReached
+          ? err.response.data.message // e.g. "You've reached today's limit of 100 AI Assistant messages..."
+          : status === 429
             ? 'You are sending messages too quickly. Please wait a moment and try again.'
             : status === 400
               ? 'Please type a question (up to 1000 characters).'
               : "I couldn't get an answer just now. Please check your connection and try again.";
         setMessages((m) => [
           ...m,
-          { id: `e${nextId.current++}`, role: 'assistant', text: friendly, time: new Date(), error: true, retryText: status === 400 ? null : text },
+          { id: `e${nextId.current++}`, role: 'assistant', text: friendly, time: new Date(), error: true, retryText: status === 400 || quotaReached ? null : text },
         ]);
       } finally {
         setLoading(false);
@@ -194,6 +196,11 @@ export default function AIAssistant() {
                     {m.role === 'user' ? <User size={12} /> : m.error ? <AlertCircle size={12} /> : <Sparkles size={12} />}
                   </div>
                   <div className={`flex max-w-[85%] flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    {m.fellBack && (
+                      <div role="status" className="mb-1 flex items-center gap-1 rounded-md bg-warning-50 px-2 py-1 text-[11px] font-medium text-warning-700">
+                        <AlertCircle size={11} /> AI Assistant temporarily unavailable - this is an offline fallback response, not from the AI model.
+                      </div>
+                    )}
                     <div
                       className={`whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm leading-relaxed ${
                         m.role === 'user'

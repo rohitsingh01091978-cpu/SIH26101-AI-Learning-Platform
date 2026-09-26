@@ -4,6 +4,7 @@ const prisma = require('../utils/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { signToken } = require('../utils/jwt');
+const { isDemoEmail, isBlockedDemoUser } = require('../utils/demoAccounts');
 
 const emailRule = () =>
   body('email')
@@ -53,6 +54,11 @@ const register = asyncHandler(async (req, res) => {
   checkValidation(req);
   const { email, password, name } = req.body;
 
+  // The demo domain is reserved for the seeded demo accounts; the public cannot register into it.
+  if (isDemoEmail(email)) {
+    throw new ApiError(400, 'Please use a different email address.');
+  }
+
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) {
     throw new ApiError(409, 'An account with this email already exists.');
@@ -89,6 +95,11 @@ const login = asyncHandler(async (req, res) => {
   // get the same generic error (and the same timing) as any other failure.
   const isValid = await bcrypt.compare(password, (user && user.password) || DUMMY_HASH);
   if (!user || !user.password || !isValid) {
+    throw new ApiError(401, 'Invalid email or password.');
+  }
+  // Demo accounts are refused when disabled, with the same generic error (no hint that the account exists).
+  if (isBlockedDemoUser(user)) {
+    console.warn('[auth] sign-in refused: demo accounts are disabled (DEMO_ACCOUNTS_ENABLED).');
     throw new ApiError(401, 'Invalid email or password.');
   }
 

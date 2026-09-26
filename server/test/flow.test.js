@@ -4,6 +4,11 @@
 //
 // NOTE: this WRITES data (assessment attempt, material, quiz attempt, progress
 // row) to the local database, so it is a separate script: `npm run test:flow`.
+// The flow runs as the same seeded demo learner every time; keep repeated local runs from
+// exhausting the (real, enforced) daily AI quotas. Quotas themselves are tested in quota*.test.js.
+process.env.AI_DAILY_ANALYSES_PER_USER = '100000';
+process.env.AI_DAILY_MCQ_GENERATIONS_PER_USER = '100000';
+process.env.AI_DAILY_ASSISTANT_MESSAGES_PER_USER = '100000';
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { LEARNER, startServer, request, stop } = require('./helpers');

@@ -5,6 +5,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { signToken } = require('../utils/jwt');
 const oauth = require('../auth/googleOAuth');
+const { isBlockedDemoUser } = require('../utils/demoAccounts');
 
 const GOOGLE_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
 
@@ -156,7 +157,7 @@ const exchangeHandoff = asyncHandler(async (req, res) => {
   if (!validationResult(req).isEmpty()) throw new ApiError(400, 'Invalid request.');
   const userId = oauth.consumeHandoffCode(req.body.code);
   const user = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null;
-  if (!user) throw new ApiError(401, 'Sign-in link is invalid or has expired. Please try again.');
+  if (!user || isBlockedDemoUser(user)) throw new ApiError(401, 'Sign-in link is invalid or has expired. Please try again.');
   res.setHeader('Cache-Control', 'no-store');
   res.json(sessionResponse(user));
 });
@@ -178,7 +179,7 @@ const linkGoogleAccount = asyncHandler(async (req, res) => {
   if (!link) throw new ApiError(401, 'This link has expired. Please start Google sign-in again.');
 
   const user = await prisma.user.findUnique({ where: { id: link.userId } });
-  if (!user || !user.password || user.googleId) {
+  if (!user || !user.password || user.googleId || isBlockedDemoUser(user)) {
     throw new ApiError(401, 'This link has expired. Please start Google sign-in again.');
   }
 

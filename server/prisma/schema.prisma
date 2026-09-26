@@ -95,6 +95,8 @@ model User {
   authProvider String @default("local")
   // Google's stable account id (the OIDC "sub" claim). Set once Google sign-in is linked.
   googleId  String?  @unique
+  // Set when the password is reset: JWTs issued before this moment are no longer accepted.
+  passwordChangedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -106,6 +108,8 @@ model User {
   skillGaps            SkillGap[]
   recommendations      LearningRecommendation[]
   progress             LearningProgress[]
+  aiUsage              AiUsage[]
+  passwordResetTokens  PasswordResetToken[]
 
   @@map("users")
 }
@@ -307,7 +311,12 @@ model LearningMaterial {
   originalName  String
   fileType      MaterialFileType
   fileSize      Int
-  filePath      String
+  // Legacy: absolute path on the old ephemeral disk. Kept untouched for existing rows; new uploads leave it NULL.
+  filePath      String?
+  // New uploads: a server-generated key (users/<userId>/<uuid>.<ext>) in the configured storage provider.
+  storageKey      String?
+  storageProvider String?
+  sha256          String?
   extractedText String?
   status        MaterialStatus   @default(UPLOADED)
   uploadedAt    DateTime         @default(now())
@@ -418,4 +427,43 @@ model LearningProgress {
   course         Course?                  @relation(fields: [courseId], references: [id], onDelete: SetNull)
 
   @@map("learning_progress")
+}
+
+// Metadata about each AI-backed action, used to enforce per-user daily quotas and to see usage.
+// Never stores prompts, document text, answers or keys - only counts and timings.
+model AiUsage {
+  id               String    @id @default(uuid())
+  userId           String
+  feature          String // ANALYZE_DOCUMENT | GENERATE_MCQS | ASSISTANT_CHAT
+  // PENDING (in flight) | SUCCESS | FAILED (provider reached, unusable output) - these count toward the quota.
+  // UNAVAILABLE (provider outage) | FALLBACK (offline answer) | ERROR (our bug) - refunded, not counted.
+  status           String    @default("PENDING")
+  provider         String? // demo | external
+  model            String?
+  promptTokens     Int?
+  completionTokens Int?
+  durationMs       Int?
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, feature, createdAt])
+  @@map("ai_usage")
+}
+
+// One-time password-reset tokens. Only the SHA-256 HASH of the token is stored; the raw token exists
+// only in the email link. usedAt is set when the token is redeemed or superseded by a newer request.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }

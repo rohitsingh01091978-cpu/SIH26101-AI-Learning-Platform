@@ -1,45 +1,47 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
 const ApiError = require('../utils/ApiError');
 
-const uploadDir = path.join(__dirname, '..', '..', process.env.UPLOAD_DIR || 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Uploads are received in memory (bounded by the size limit), validated, text-extracted, and only then
+// handed to the storage provider (see controllers/materialController.js). Nothing is written to the
+// application's own disk, and no client-supplied name or path is ever used for storage.
 
+const ALLOWED_EXT = ['.pdf', '.docx', '.txt'];
 const ALLOWED_MIME = {
   'application/pdf': 'PDF',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
   'text/plain': 'TXT',
 };
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const unique = crypto.randomBytes(8).toString('hex');
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${Date.now()}-${unique}${ext}`);
-  },
-});
-
-const ALLOWED_EXT = ['.pdf', '.docx', '.txt'];
-
+// First, cheap gate on what the client CLAIMS. The real check (file signature) happens after receipt.
 const fileFilter = (req, file, cb) => {
-  const ext = path.extname(file.originalname).toLowerCase();
+  const ext = path.extname(file.originalname || '').toLowerCase();
   if (!ALLOWED_MIME[file.mimetype] || !ALLOWED_EXT.includes(ext)) {
-    return cb(new ApiError(400, 'Unsupported file type. Only PDF, DOCX, and TXT are allowed.'));
+    return cb(new ApiError(415, 'Unsupported file type. Only PDF, DOCX, and TXT are allowed.', null, 'UNSUPPORTED_FILE'));
   }
   cb(null, true);
 };
 
-const maxSizeMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 10);
+const maxSizeMb = () => {
+  const n = Number(process.env.MAX_UPLOAD_SIZE_MB);
+  return Number.isFinite(n) && n > 0 ? n : 10;
+};
 
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: maxSizeMb * 1024 * 1024 },
-});
+// Built per request so MAX_UPLOAD_SIZE_MB changes (and tests) take effect without a restart.
+const upload = {
+  single: (field) => (req, res, next) =>
+    multer({
+      storage: multer.memoryStorage(),
+      fileFilter,
+      limits: { fileSize: Math.floor(maxSizeMb() * 1024 * 1024), files: 1, fields: 5, parts: 8 },
+    }).single(field)(req, res, (err) => {
+      // A malformed multipart body (e.g. a hostile filename with control characters) makes the parser throw a
+      // plain Error. That is the client's fault: answer 400 instead of surfacing an internal error.
+      if (err && !(err instanceof multer.MulterError) && !(err instanceof ApiError)) {
+        return next(new ApiError(400, 'The upload could not be processed. Please send a single PDF, DOCX or TXT file.'));
+      }
+      return next(err);
+    }),
+};
 
-module.exports = { upload, ALLOWED_MIME, uploadDir };
+module.exports = { upload, ALLOWED_MIME, maxSizeMb };

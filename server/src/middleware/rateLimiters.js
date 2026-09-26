@@ -100,7 +100,61 @@ const assistantLimiter = rateLimit({
     res.status(429).json({ success: false, message: 'You are sending messages too quickly. Please wait a moment.' }),
 });
 
+// Expensive per-user actions (uploads, AI analysis, MCQ generation). Per minute, per learner.
+// Mount AFTER `authenticate`. Daily quotas (Step 2) are separate and come on top of these.
+const perUserPerMinute = (envName, defaultLimit, message) =>
+  rateLimit({
+    windowMs: 60 * 1000,
+    limit: toInt(process.env[envName], defaultLimit),
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => (req.user ? `u:${req.user.id}` : ipKeyGenerator(req.ip)),
+    handler: (req, res) => res.status(429).json({ success: false, message }),
+  });
+
+const uploadLimiter = perUserPerMinute('UPLOAD_RATE_LIMIT_PER_MINUTE', 10, 'Too many uploads. Please wait a moment and try again.');
+// Downloading and deleting stored files (one shared counter).
+const fileAccessLimiter = perUserPerMinute('FILE_ACCESS_RATE_LIMIT_PER_MINUTE', 30, 'Too many file requests. Please wait a moment and try again.');
+// One shared counter for document analysis and MCQ generation.
+const aiJobLimiter = perUserPerMinute('AI_JOB_RATE_LIMIT_PER_MINUTE', 10, 'Too many AI requests. Please wait a moment and try again.');
+
+// ---- Password reset ----
+// Forgot-password: every request counts (successful ones too) and the key is built only from what the
+// caller SENT (ip + the email string), never from whether an account exists, so a 429 reveals nothing.
+const resetTooMany = (req, res) =>
+  res.status(429).json({ success: false, message: 'Too many password reset requests. Please try again later.' });
+
+const forgotIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: toInt(process.env.PASSWORD_RESET_IP_LIMIT_PER_HOUR, 15),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: resetTooMany,
+});
+const forgotEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: toInt(process.env.PASSWORD_RESET_RATE_LIMIT_PER_HOUR, 3),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}|forgot|${emailOf(req)}`,
+  handler: resetTooMany,
+});
+// Redeeming a token: failed attempts per IP (guessing a 256-bit token is hopeless, but the endpoint is still bounded).
+const resetAttemptLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: toInt(process.env.PASSWORD_RESET_ATTEMPT_LIMIT, 10),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  handler: resetTooMany,
+});
+
 module.exports = {
+  forgotLimiters: [forgotIpLimiter, forgotEmailLimiter],
+  resetAttemptLimiter,
+  fileAccessLimiter,
+  uploadLimiter,
+  aiJobLimiter,
   loginLimiters: [loginIpLimiter, loginAccountLimiter],
   registerLimiter,
   googleFlowLimiter,

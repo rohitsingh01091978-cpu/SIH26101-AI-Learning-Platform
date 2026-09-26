@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { LogIn, AlertCircle, Eye, EyeOff, ArrowRight, Info } from 'lucide-react';
+import { LogIn, AlertCircle, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { getErrorMessage } from '../services/api';
@@ -27,7 +27,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(googleError ? GOOGLE_ERRORS[googleError] || GOOGLE_ERRORS.failed : '');
-  const [showRecovery, setShowRecovery] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleContinue = (e) => {
@@ -70,7 +69,6 @@ export default function Login() {
     setStep(1);
     setPassword('');
     setShowPassword(false);
-    setShowRecovery(false);
     setError('');
   };
 
@@ -166,19 +164,9 @@ export default function Login() {
             </div>
 
             <div>
-              <button
-                type="button"
-                onClick={() => setShowRecovery((s) => !s)}
-                className="text-sm font-medium text-primary-700 hover:underline"
-              >
+              <Link to="/forgot-password" className="text-sm font-medium text-primary-700 hover:underline">
                 Forgot password?
-              </button>
-              {showRecovery && (
-                <div className="mt-2 flex items-start gap-2 rounded-md bg-info-50 px-3 py-2 text-sm text-info-700">
-                  <Info size={16} className="mt-0.5 shrink-0" />
-                  <span>Password recovery is currently unavailable in this prototype. Please contact the administrator.</span>
-                </div>
-              )}
+              </Link>
             </div>
 
             {errorBox}
