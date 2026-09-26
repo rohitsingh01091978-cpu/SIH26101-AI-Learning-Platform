@@ -11,6 +11,10 @@ import { getSkillGaps } from '../services/skillGapService';
 import { getLearningPath } from '../services/learningPathService';
 import { getErrorMessage } from '../services/api';
 
+// Priority carries the (single) red signal; status is a quiet text label with a small dot, so a card never shouts twice.
+const STATUS_DOT = { STRONG: 'bg-success-500', DEVELOPING: 'bg-warning-500', NEEDS_IMPROVEMENT: 'bg-danger-500' };
+const sentence = (v) => String(v || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+
 const GROUPS = [
   { key: 'HIGH', label: 'High Priority', tone: 'danger' },
   { key: 'MEDIUM', label: 'Medium Priority', tone: 'warning' },
@@ -106,12 +110,15 @@ export default function SkillGaps() {
                     <p className="text-xs text-ink-500">{g.competency.category.replace(/_/g, ' ')}</p>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Badge variant={g.priority}>{g.priority} priority</Badge>
-                    <Badge variant={g.status}>{g.status.replace(/_/g, ' ')}</Badge>
+                    <Badge variant={g.priority}>{sentence(g.priority)} priority</Badge>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-600">
+                      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${STATUS_DOT[g.status] || 'bg-ink-300'}`} />
+                      {sentence(g.status)}
+                    </span>
                   </div>
                 </div>
 
-                <GapBar current={g.currentLevel} required={g.requiredLevel} tone={g.status === 'STRONG' ? 'success' : g.priority === 'HIGH' ? 'danger' : 'warning'} />
+                <GapBar current={g.currentLevel} required={g.requiredLevel} tone={g.status === 'STRONG' ? 'success' : 'warning'} />
 
                 {g.gap > 0 && (
                   <p className="mt-3 text-xs text-ink-500">

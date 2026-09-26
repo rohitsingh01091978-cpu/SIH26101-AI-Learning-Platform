@@ -7,38 +7,31 @@ import {
   FileType2,
   X,
   ArrowRight,
-  Search,
   Braces,
-  Map,
+  BrainCircuit,
+  Lightbulb,
   ClipboardCheck,
-  Target,
+  AlertCircle,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import EmptyState from '../components/EmptyState.jsx';
-import Badge from '../components/Badge.jsx';
+import Badge, { MATERIAL_STATUS } from '../components/Badge.jsx';
 import { SkeletonList } from '../components/Skeleton.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { listMaterials, uploadMaterial } from '../services/materialService';
 import { getErrorMessage } from '../services/api';
 
-const STATUS_VARIANT = {
-  UPLOADED: 'MEDIUM',
-  EXTRACTING: 'MEDIUM',
-  ANALYZING: 'MEDIUM',
-  COMPLETED: 'STRONG',
-  FAILED: 'NEEDS_IMPROVEMENT',
-};
-
 const ACCEPTED_TYPES = '.pdf,.docx,.txt';
 const MAX_UPLOAD_MB = 10; // matches server MAX_UPLOAD_SIZE_MB in .env
 
+// The real order of the flow on this platform.
 const WORKFLOW_STEPS = [
   { label: 'Upload', icon: UploadCloud },
-  { label: 'Analyze', icon: Search },
-  { label: 'Map', icon: Map },
-  { label: 'Assess', icon: ClipboardCheck },
-  { label: 'Personalize', icon: Target },
+  { label: 'Text extraction', icon: FileText },
+  { label: 'AI analysis', icon: BrainCircuit },
+  { label: 'Insights', icon: Lightbulb },
+  { label: 'MCQ generation', icon: ClipboardCheck },
 ];
 
 function formatSize(bytes) {
@@ -123,21 +116,24 @@ export default function LearningMaterials() {
       />
 
       <div className="card mb-6">
-        <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2">
+        <ol className="flex flex-wrap items-center justify-center gap-1 sm:gap-2" aria-label="How AI Content Intelligence works">
           {WORKFLOW_STEPS.map((step, idx) => (
             <React.Fragment key={step.label}>
-              <div className="flex items-center gap-1.5 rounded-full bg-surface-subtle px-3 py-1.5">
-                <step.icon size={13} className="text-primary-600" />
+              <li className="flex items-center gap-1.5 rounded-full bg-surface-subtle px-3 py-1.5">
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white" aria-hidden="true">{idx + 1}</span>
+                <step.icon size={13} className="text-primary-600" aria-hidden="true" />
                 <span className="text-xs font-semibold text-ink-700">{step.label}</span>
-              </div>
-              {idx < WORKFLOW_STEPS.length - 1 && <ArrowRight size={13} className="shrink-0 text-ink-300" />}
+              </li>
+              {idx < WORKFLOW_STEPS.length - 1 && <ArrowRight size={13} className="shrink-0 text-ink-300" aria-hidden="true" />}
             </React.Fragment>
           ))}
-        </div>
+        </ol>
       </div>
 
       {!pendingFile ? (
         <div
+          role="region"
+          aria-label="Upload learning material"
           onDrop={onDrop}
           onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
           onDragLeave={() => setDragActive(false)}
@@ -155,7 +151,7 @@ export default function LearningMaterials() {
               <span className="flex items-center gap-1"><FileType2 size={12} /> DOCX</span>
               <span className="flex items-center gap-1"><FileType2 size={12} /> TXT</span>
             </p>
-            <p className="mt-1 text-xs text-ink-400">Maximum supported file size: {MAX_UPLOAD_MB}MB</p>
+            <p className="mt-1 text-xs text-ink-500">Drag a file here, or browse. Maximum size: {MAX_UPLOAD_MB} MB.</p>
           </div>
           <input
             ref={fileInputRef}
@@ -165,9 +161,9 @@ export default function LearningMaterials() {
             onChange={(e) => selectFile(e.target.files?.[0])}
           />
           <button onClick={() => fileInputRef.current?.click()} className="btn-primary">
-            Browse Files
+            <UploadCloud size={15} /> Browse files
           </button>
-          {uploadError && <p className="text-sm text-danger-600">{uploadError}</p>}
+          {uploadError && <p role="alert" className="alert-error max-w-md"><AlertCircle size={16} className="mt-0.5 shrink-0" /><span>{uploadError}</span></p>}
         </div>
       ) : (
         <div className="mb-6 rounded-lg border border-ink-200 bg-white p-5 animate-slide-up">
@@ -178,7 +174,7 @@ export default function LearningMaterials() {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink-900">{pendingFile.name}</p>
-                <p className="text-xs text-ink-500">{formatSize(pendingFile.size)} • ready to upload</p>
+                <p className="text-xs text-ink-500">{formatSize(pendingFile.size)} · ready to upload</p>
               </div>
             </div>
             {!uploading && (
@@ -191,13 +187,13 @@ export default function LearningMaterials() {
           {uploading && (
             <div className="mt-4">
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
-                <div className="h-1.5 rounded-full bg-primary-600 transition-all" style={{ width: `${uploadProgress}%` }} />
+                <div className="h-1.5 rounded-full bg-primary-600 transition-all" style={{ width: `${uploadProgress}%` }} role="progressbar" aria-label="Upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadProgress} />
               </div>
-              <p className="mt-1.5 text-xs text-ink-500">Uploading… {uploadProgress}%</p>
+              <p className="mt-1.5 text-xs text-ink-500" role="status">Uploading… {uploadProgress}%{uploadProgress >= 100 ? ' — extracting text…' : ''}</p>
             </div>
           )}
 
-          {uploadError && <p className="mt-3 text-sm text-danger-600">{uploadError}</p>}
+          {uploadError && <p role="alert" className="alert-error mt-3"><AlertCircle size={16} className="mt-0.5 shrink-0" /><span>{uploadError}</span></p>}
 
           {!uploading && (
             <button onClick={handleUpload} className="btn-primary mt-4 w-full">
@@ -212,9 +208,13 @@ export default function LearningMaterials() {
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
       ) : materials.length === 0 ? (
-        <EmptyState icon={Braces} title="No materials yet" description="Upload your first document to get started." />
+        <EmptyState icon={Braces} title="No learning materials yet" description="Upload a PDF, DOCX or TXT file to begin AI analysis." />
       ) : (
-        <div className="space-y-2">
+        <div>
+          <h2 className="mb-2 flex items-center gap-2 font-display text-sm font-bold text-ink-900">
+            Your learning materials <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs font-semibold text-ink-600">{materials.length}</span>
+          </h2>
+          <div className="space-y-2">
           {materials.map((m) => (
             <Link
               key={m.id}
@@ -228,17 +228,18 @@ export default function LearningMaterials() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink-900">{m.originalName}</p>
                   <p className="text-xs text-ink-500">
-                    {m.fileType} • {formatSize(m.fileSize)} • {new Date(m.uploadedAt).toLocaleDateString()}
-                    {m.quizzes?.length > 0 && ` • ${m.quizzes.length} quiz${m.quizzes.length > 1 ? 'zes' : ''} generated`}
+                    {m.fileType} · {formatSize(m.fileSize)} · {new Date(m.uploadedAt).toLocaleDateString()}
+                    {m.quizzes?.length > 0 && ` · ${m.quizzes.length} quiz${m.quizzes.length > 1 ? 'zes' : ''} generated`}
                   </p>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                <Badge variant={STATUS_VARIANT[m.status]}>{m.status}</Badge>
-                <ChevronRight size={16} className="text-ink-400" />
+                <Badge variant={(MATERIAL_STATUS[m.status] || {}).variant}>{(MATERIAL_STATUS[m.status] || {}).label || m.status}</Badge>
+                <ChevronRight size={16} className="text-ink-400" aria-hidden="true" />
               </div>
             </Link>
           ))}
+          </div>
         </div>
       )}
     </div>

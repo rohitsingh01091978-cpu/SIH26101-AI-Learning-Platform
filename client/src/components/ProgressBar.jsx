@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function ProgressBar({ value, max = 100, tone = 'primary', height = 'h-2' }) {
+export default function ProgressBar({ value, max = 100, tone = 'primary', height = 'h-2', label = 'Progress' }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   const toneClasses = {
     primary: 'bg-primary-600',
@@ -10,7 +10,14 @@ export default function ProgressBar({ value, max = 100, tone = 'primary', height
     danger: 'bg-danger-500',
   };
   return (
-    <div className={`w-full ${height} rounded-full bg-ink-100 overflow-hidden`}>
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(pct)}
+      className={`w-full ${height} rounded-full bg-ink-100 overflow-hidden`}
+    >
       <div
         className={`${height} rounded-full ${toneClasses[tone] || toneClasses.primary} transition-all duration-500`}
         style={{ width: `${pct}%` }}

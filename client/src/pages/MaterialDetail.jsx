@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Sparkles,
   BrainCircuit,
   ArrowLeft,
+  ArrowRight,
   ListChecks,
   Quote,
   FileText,
@@ -18,7 +19,8 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import ErrorState from '../components/ErrorState.jsx';
-import Badge from '../components/Badge.jsx';
+import Badge, { MATERIAL_STATUS } from '../components/Badge.jsx';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import ProcessingTimeline from '../components/ProcessingTimeline.jsx';
 import CompetencyChainMap from '../components/CompetencyChainMap.jsx';
@@ -30,14 +32,6 @@ import { getErrorMessage } from '../services/api';
 
 const DIFFICULTY_COLOR = { EASY: 'bg-success-500', MEDIUM: 'bg-warning-500', HARD: 'bg-danger-500' };
 const DIFFICULTY_ORDER = ['EASY', 'MEDIUM', 'HARD'];
-
-const GENERATION_STEPS = [
-  'Analyzing source material...',
-  'Selecting relevant concepts...',
-  'Mapping competencies...',
-  'Creating questions...',
-  'Validating questions...',
-];
 
 function formatSize(bytes) {
   if (!bytes) return '—';
@@ -60,8 +54,6 @@ export default function MaterialDetail() {
   const [lastQuiz, setLastQuiz] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [fileBusy, setFileBusy] = useState(false);
-  const [genStepIndex, setGenStepIndex] = useState(0);
-  const genTimer = useRef(null);
 
   const load = async () => {
     setLoading(true);
@@ -77,7 +69,6 @@ export default function MaterialDetail() {
 
   useEffect(() => {
     load();
-    return () => clearInterval(genTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -99,10 +90,6 @@ export default function MaterialDetail() {
   const handleGenerate = async () => {
     setGenerating(true);
     setGenError('');
-    setGenStepIndex(0);
-    genTimer.current = setInterval(() => {
-      setGenStepIndex((i) => (i < GENERATION_STEPS.length - 1 ? i + 1 : i));
-    }, 650);
     try {
       const data = await generateQuiz(id, genCount, genDifficulty);
       setLastQuiz(data);
@@ -110,7 +97,6 @@ export default function MaterialDetail() {
     } catch (err) {
       setGenError(getErrorMessage(err));
     } finally {
-      clearInterval(genTimer.current);
       setGenerating(false);
     }
   };
@@ -131,10 +117,10 @@ export default function MaterialDetail() {
   const timelineSteps = [
     { label: 'Document uploaded', state: 'done' },
     { label: 'Text extracted', state: material.hasExtractedText ? 'done' : 'pending' },
-    { label: 'Content analyzed', state: analysis ? 'done' : analyzing ? 'active' : 'pending' },
-    { label: 'Topics identified', state: analysis ? 'done' : analyzing ? 'active' : 'pending' },
-    { label: 'Competencies mapped', state: analysis ? 'done' : analyzing ? 'active' : 'pending' },
-    { label: 'Learning objectives generated', state: analysis ? 'done' : analyzing ? 'active' : 'pending' },
+    { label: 'AI content analysis', state: analysis ? 'done' : analyzing ? 'active' : 'pending' },
+    { label: 'Topics identified', state: analysis ? 'done' : 'pending' },
+    { label: 'Competencies mapped', state: analysis ? 'done' : 'pending' },
+    { label: 'Learning objectives generated', state: analysis ? 'done' : 'pending' },
     { label: 'Assessment prepared', state: hasQuiz ? 'done' : generating ? 'active' : 'pending' },
   ];
 
@@ -221,8 +207,8 @@ export default function MaterialDetail() {
               <FileText size={20} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-ink-900">{material.originalName}</p>
-              <p className="text-xs text-ink-500">Uploaded {new Date(material.uploadedAt).toLocaleString()}</p>
+              <p className="text-sm font-semibold text-ink-900">Uploaded document</p>
+              <p className="text-xs text-ink-500">{new Date(material.uploadedAt).toLocaleString()}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
@@ -240,8 +226,8 @@ export default function MaterialDetail() {
             </div>
             <div>
               <p className="text-ink-400">Processing status</p>
-              <Badge variant={material.status === 'COMPLETED' ? 'STRONG' : material.status === 'FAILED' ? 'NEEDS_IMPROVEMENT' : 'MEDIUM'}>
-                {material.status}
+              <Badge variant={(MATERIAL_STATUS[material.status] || {}).variant}>
+                {(MATERIAL_STATUS[material.status] || {}).label || material.status}
               </Badge>
             </div>
           </div>
@@ -253,12 +239,13 @@ export default function MaterialDetail() {
         <ProcessingTimeline steps={timelineSteps} />
         {!analysis && (
           <button onClick={handleAnalyze} disabled={analyzing} className="btn-primary mt-5 w-full">
-            <Sparkles size={16} /> {analyzing ? 'Analyzing...' : 'Analyze document'}
+            <Sparkles size={16} /> {analyzing ? 'Analyzing learning material…' : 'Analyze document with AI'}
           </button>
         )}
+        {analyzing && <p className="mt-2 text-center text-xs text-ink-500" role="status">This can take a few seconds. Please keep this page open.</p>}
       </div>
 
-      {error && <p className="mb-4 text-sm text-danger-600">{error}</p>}
+      {error && <p role="alert" className="alert-error mb-4">{error}</p>}
 
       {analysis && (
         <>
@@ -419,16 +406,16 @@ export default function MaterialDetail() {
             <p className="mb-4 text-xs text-ink-500">Questions are grounded in this document — every explanation cites the source sentence.</p>
             <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div>
-                <label className="label">Questions</label>
-                <select className="input" value={genCount} onChange={(e) => setGenCount(Number(e.target.value))} disabled={generating}>
+                <label className="label" htmlFor="gen-count">Questions</label>
+                <select id="gen-count" className="input" value={genCount} onChange={(e) => setGenCount(Number(e.target.value))} disabled={generating}>
                   <option value={5}>5</option>
                   <option value={10}>10</option>
                   <option value={20}>20</option>
                 </select>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <label className="label">Difficulty</label>
-                <select className="input" value={genDifficulty} onChange={(e) => setGenDifficulty(e.target.value)} disabled={generating}>
+                <label className="label" htmlFor="gen-difficulty">Difficulty</label>
+                <select id="gen-difficulty" className="input" value={genDifficulty} onChange={(e) => setGenDifficulty(e.target.value)} disabled={generating}>
                   <option value="MIXED">Mixed (Adaptive)</option>
                   <option value="EASY">Easy</option>
                   <option value="MEDIUM">Medium</option>
@@ -436,38 +423,25 @@ export default function MaterialDetail() {
                 </select>
               </div>
             </div>
-            {genError && <p className="mb-3 text-sm text-danger-600">{genError}</p>}
+            {genError && <p role="alert" className="alert-error mb-3">{genError}</p>}
 
             {!generating && (
               <button onClick={handleGenerate} className="btn-accent">
-                <Sparkles size={16} /> Generate AI Assessment →
+                <Sparkles size={16} /> Generate MCQs
               </button>
             )}
 
             {generating && (
-              <div className="rounded-lg border border-ink-200 bg-surface-subtle p-4 animate-fade-in">
-                <p className="section-eyebrow mb-3">AI Assessment Generation</p>
-                <ul className="space-y-2">
-                  {GENERATION_STEPS.map((step, idx) => (
-                    <li key={step} className="flex items-center gap-2 text-sm">
-                      {idx < genStepIndex ? (
-                        <CheckCircle2 size={15} className="shrink-0 text-success-600" />
-                      ) : idx === genStepIndex ? (
-                        <Sparkles size={15} className="shrink-0 animate-pulse text-primary-600" />
-                      ) : (
-                        <span className="h-[15px] w-[15px] shrink-0 rounded-full border border-ink-300" />
-                      )}
-                      <span className={idx <= genStepIndex ? 'text-ink-900' : 'text-ink-400'}>{step}</span>
-                    </li>
-                  ))}
-                </ul>
+              <div className="rounded-lg border border-ink-200 bg-surface-subtle p-4 animate-fade-in" role="status">
+                <LoadingSpinner label="Generating questions from your document…" />
+                <p className="mt-1.5 text-xs text-ink-500">This can take up to a minute. Please keep this page open.</p>
               </div>
             )}
 
             {lastQuiz && !generating && (
               <div className="mt-5 animate-slide-up rounded-lg border border-success-200 bg-success-50 p-4">
                 <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-success-700">
-                  <CheckCircle2 size={14} /> Assessment Ready
+                  <CheckCircle2 size={14} /> MCQs generated
                 </p>
                 <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                   <div>
@@ -502,11 +476,41 @@ export default function MaterialDetail() {
                         ) : null
                       )}
                     </div>
+                    <p className="mt-1 text-[11px] text-ink-500">
+                      {['EASY', 'MEDIUM', 'HARD'].filter((d) => difficultyCounts[d]).map((d) => `${d.charAt(0)}${d.slice(1).toLowerCase()} ${difficultyCounts[d]}`).join(' · ')}
+                    </p>
                   </div>
                 )}
 
+                <details className="mt-4 rounded-md border border-success-200 bg-white/70">
+                  <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-ink-800">
+                    Preview generated questions ({lastQuiz.questions.length})
+                  </summary>
+                  <ol className="space-y-3 border-t border-success-200 p-3">
+                    {lastQuiz.questions.map((q, i) => (
+                      <li key={q.id} className="rounded-md border border-ink-200 bg-white p-3">
+                        <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs font-semibold text-ink-500">Q{i + 1}</span>
+                          <Badge variant={q.difficulty}>{q.difficulty}</Badge>
+                          {q.competency && <Badge variant="STATISTICAL">{q.competency}</Badge>}
+                          {q.topic && <Badge variant="default">{q.topic}</Badge>}
+                        </div>
+                        <p className="text-sm font-medium text-ink-900">{q.question}</p>
+                        <ul className="mt-2 space-y-1 text-xs text-ink-600">
+                          {q.options.map((o, j) => (
+                            <li key={j}><span className="font-semibold">{String.fromCharCode(65 + j)}.</span> {o}</li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="border-t border-success-200 px-3 py-2 text-[11px] text-ink-500">
+                    Correct answers and explanations are revealed as you answer during the assessment.
+                  </p>
+                </details>
+
                 <button onClick={() => navigate(`/quizzes/${lastQuiz.quiz.id}/take`)} className="btn-primary mt-4 w-full">
-                  Begin Adaptive Assessment
+                  Begin Adaptive Assessment <ArrowRight size={16} />
                 </button>
               </div>
             )}

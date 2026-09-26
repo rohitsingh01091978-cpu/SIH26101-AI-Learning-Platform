@@ -93,6 +93,7 @@ export default function AdaptiveQuiz() {
     if (selected === null || feedback || submitLock.current) return;
     submitLock.current = true;
     setSubmitting(true);
+    setError('');
     try {
       const responseTimeMs = Date.now() - questionStart.current;
       const data = await answerQuestion(id, {
@@ -202,35 +203,42 @@ export default function AdaptiveQuiz() {
       />
 
       <div className="mb-4">
-        <ProgressBar value={progress.answered} max={progress.total} />
+        <ProgressBar value={progress.answered} max={progress.total} label="Assessment progress" />
+        <p className="mt-1.5 text-xs text-ink-500">{progress.answered} of {progress.total} answered</p>
       </div>
+
+      {error && <p role="alert" className="alert-error mb-3">{error}</p>}
 
       <div className="mb-3 flex items-center gap-1.5 text-xs font-medium text-primary-700">
         <BrainCircuit size={14} /> Evaluating: {question.competency || question.topic || 'General'}
       </div>
 
       <div className="card">
-        <p className="mb-4 text-sm font-medium text-ink-900">{question.question}</p>
-        <div className="space-y-2">
+        <p className="mb-4 text-base font-medium leading-relaxed text-ink-900" id="question-text">{question.question}</p>
+        <div className="space-y-2" role="radiogroup" aria-labelledby="question-text">
           {question.options.map((opt, i) => {
             const isSelected = selected === i;
             const isCorrectOpt = feedback && i === feedback.correctAnswer;
             const isWrongSelected = feedback && isSelected && !feedback.isCorrect;
 
-            let classes = 'border-ink-200 hover:bg-surface-subtle';
-            if (isSelected && !feedback) classes = 'border-primary-500 bg-primary-50';
-            if (isCorrectOpt) classes = 'border-success-500 bg-success-50';
-            if (isWrongSelected) classes = 'border-danger-500 bg-danger-50';
+            let classes = 'border-ink-200 hover:border-ink-300 hover:bg-surface-subtle';
+            let marker = 'bg-ink-100 text-ink-600';
+            if (isSelected && !feedback) { classes = 'border-primary-500 bg-primary-50'; marker = 'bg-primary-600 text-white'; }
+            if (isCorrectOpt) { classes = 'border-success-500 bg-success-50'; marker = 'bg-success-600 text-white'; }
+            if (isWrongSelected) { classes = 'border-danger-500 bg-danger-50'; marker = 'bg-danger-600 text-white'; }
 
             return (
               <button
                 key={i}
                 type="button"
+                role="radio"
+                aria-checked={isSelected}
                 disabled={!!feedback}
                 onClick={() => handleSelect(i)}
-                className={`flex w-full items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-left text-sm transition-colors ${classes}`}
+                className={`flex w-full items-center gap-3 rounded-md border px-3.5 py-3 text-left text-sm transition-colors ${classes}`}
               >
-                <span>{opt}</span>
+                <span aria-hidden="true" className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${marker}`}>{String.fromCharCode(65 + i)}</span>
+                <span className="flex-1">{opt}</span>
                 {isCorrectOpt && <CheckCircle2 size={16} className="text-success-600" />}
                 {isWrongSelected && <XCircle size={16} className="text-danger-600" />}
               </button>
@@ -239,7 +247,7 @@ export default function AdaptiveQuiz() {
         </div>
 
         {feedback && (
-          <div className={`mt-4 animate-slide-up rounded-md px-3.5 py-2.5 text-sm ${feedback.isCorrect ? 'bg-success-50 text-success-800' : 'bg-danger-50 text-danger-800'}`}>
+          <div role="status" aria-live="polite" className={`mt-4 animate-slide-up rounded-md border px-3.5 py-3 text-sm ${feedback.isCorrect ? 'border-success-200 bg-success-50 text-success-800' : 'border-danger-200 bg-danger-50 text-danger-800'}`}>
             <p className="flex items-center gap-1.5 font-medium">
               {feedback.isCorrect ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
               {feedback.isCorrect ? 'Correct!' : 'Not quite.'}
@@ -255,7 +263,7 @@ export default function AdaptiveQuiz() {
         )}
 
         {!feedback && (
-          <button onClick={handleNext} disabled={selected === null || submitting} className="btn-primary mt-4">
+          <button onClick={handleNext} disabled={selected === null || submitting} className="btn-primary mt-5">
             {submitting ? 'Submitting...' : 'Submit answer'} <ArrowRight size={16} />
           </button>
         )}
