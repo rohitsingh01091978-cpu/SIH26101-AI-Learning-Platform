@@ -1,21 +1,22 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as authService from '../services/authService';
+import {
+  clearSession,
+  getStoredUser,
+  getToken,
+  saveSession,
+  updateStoredUser,
+  TOKEN_STORAGE_KEY,
+} from '../services/authStorage';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const raw = localStorage.getItem('sih_user');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState(() => getStoredUser());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('sih_token');
+    const token = getToken();
     if (!token) {
       setLoading(false);
       return;
@@ -24,27 +25,33 @@ export function AuthProvider({ children }) {
       .getMe()
       .then((data) => {
         setUser(data.user);
-        localStorage.setItem('sih_user', JSON.stringify(data.user));
+        updateStoredUser(data.user);
       })
       .catch(() => {
-        localStorage.removeItem('sih_token');
-        localStorage.removeItem('sih_user');
+        clearSession();
         setUser(null);
       })
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (email, password) => {
+  // Signing out (or an expired session) in another tab signs this tab out too.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === TOKEN_STORAGE_KEY && !e.newValue) setUser(null);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  const login = useCallback(async (email, password, remember = true) => {
     const data = await authService.login(email, password);
-    localStorage.setItem('sih_token', data.token);
-    localStorage.setItem('sih_user', JSON.stringify(data.user));
+    saveSession(data.token, data.user, remember);
     setUser(data.user);
     return data.user;
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('sih_token');
-    localStorage.removeItem('sih_user');
+    clearSession();
     setUser(null);
   }, []);
 

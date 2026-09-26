@@ -13,7 +13,9 @@
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js",
     "postinstall": "prisma generate",
-    "start:prod": "prisma migrate deploy && node src/server.js"
+    "start:prod": "prisma migrate deploy && node src/server.js",
+    "test": "node --test test/auth.test.js",
+    "test:flow": "node --test test/flow.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -24,7 +26,9 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "express-rate-limit": "^8.7.0",
     "express-validator": "^7.2.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.8.0",
     "morgan": "^1.10.0",

@@ -22,7 +22,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const user = await login(email, password);
+      const user = await login(email, password, remember);
       toast.success(`Welcome back, ${user.name.split(' ')[0]}.`);
       navigate(user.role === 'ADMIN' ? '/admin' : '/dashboard');
     } catch (err) {

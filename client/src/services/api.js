@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getToken, clearSession } from './authStorage';
 
 // VITE_API_URL is the backend origin (e.g. https://your-api.up.railway.app).
 // The "/api" prefix is appended if missing. When unset (local dev) requests go
@@ -14,7 +15,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('sih_token');
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -25,8 +26,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('sih_token');
-      localStorage.removeItem('sih_user');
+      clearSession();
       if (!window.location.pathname.startsWith('/login')) {
         window.location.href = '/login';
       }

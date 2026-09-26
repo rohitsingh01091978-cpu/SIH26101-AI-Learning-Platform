@@ -1,11 +1,12 @@
-const jwt = require('jsonwebtoken');
 const ApiError = require('../utils/ApiError');
 const prisma = require('../utils/prisma');
+const { verifyToken } = require('../utils/jwt');
 
 const authenticate = async (req, res, next) => {
   try {
     const header = req.headers.authorization || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    const match = /^Bearer\s+(\S+)$/i.exec(header);
+    const token = match ? match[1] : null;
 
     if (!token) {
       throw new ApiError(401, 'Authentication token missing.');
@@ -13,8 +14,12 @@ const authenticate = async (req, res, next) => {
 
     let payload;
     try {
-      payload = jwt.verify(token, process.env.JWT_SECRET);
+      payload = verifyToken(token);
     } catch (err) {
+      throw new ApiError(401, 'Invalid or expired token.');
+    }
+
+    if (typeof payload.sub !== 'string') {
       throw new ApiError(401, 'Invalid or expired token.');
     }
 
