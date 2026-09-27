@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { LogIn, AlertCircle, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { LogIn, AlertCircle, Eye, EyeOff, ArrowRight, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { getErrorMessage } from '../services/api';
@@ -13,6 +13,8 @@ const GOOGLE_ERRORS = {
   cancelled: 'Google sign-in was cancelled.',
   unavailable: 'Google sign-in is not available right now. Please use your email and password.',
   failed: 'Google sign-in could not be completed. Please try again.',
+  account_exists:
+    'An account with this email already exists. Sign in with your email and password, then connect Google from your Profile.',
 };
 
 export default function Login() {
@@ -26,6 +28,9 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  // Matches AuthContext's own default (remember = true), so leaving this untouched preserves exactly
+  // today's behaviour; the control just makes the existing choice visible and editable.
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -66,7 +71,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const user = await login(email, password);
+      const user = await login(email, password, remember);
       toast.success(`Welcome back, ${user.name.split(' ')[0]}.`);
       navigate(user.role === 'ADMIN' ? '/admin' : '/dashboard');
     } catch (err) {
@@ -90,33 +95,47 @@ export default function Login() {
     </div>
   );
 
+  const registerLink = (
+    <p className="mt-6 text-center text-sm text-ink-500">
+      Don&apos;t have an account?{' '}
+      <Link to="/register" className="font-medium text-primary-700 hover:underline">Sign up</Link>
+    </p>
+  );
+
   return (
     <div className="panel shadow-raised p-7 animate-slide-up">
+      <div className="mb-6">
+        <h2 className="font-display text-xl font-bold text-ink-900">Welcome back</h2>
+        <p className="mt-1 text-sm text-ink-500">
+          {step === 1
+            ? 'Sign in to access your competency dashboard and personalized learning path.'
+            : 'Enter your password to continue.'}
+        </p>
+      </div>
+
       {step === 1 ? (
         <>
-          <div className="mb-6">
-            <h2 className="font-display text-lg font-bold text-ink-900">Sign in</h2>
-            <p className="mt-1 text-sm text-ink-500">Access your competency dashboard and personalized learning path.</p>
-          </div>
-
           <form onSubmit={handleContinue} className="space-y-4" noValidate>
             <div>
               <label className="label" htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="username"
-                autoFocus
-                className="input"
-                aria-invalid={/email address/i.test(error) ? 'true' : undefined}
-                aria-describedby={/email address/i.test(error) ? 'form-error' : undefined}
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (error) clearError();
-                }}
-                placeholder="Enter your email"
-              />
+              <div className="relative">
+                <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  autoFocus
+                  className="input pl-9"
+                  aria-invalid={/email address/i.test(error) ? 'true' : undefined}
+                  aria-describedby={/email address/i.test(error) ? 'form-error' : undefined}
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (error) clearError();
+                  }}
+                  placeholder="Enter your email"
+                />
+              </div>
             </div>
 
             {errorBox}
@@ -135,21 +154,15 @@ export default function Login() {
 
           <GoogleButton onClick={clearError} />
 
-          <p className="mt-5 text-center text-sm text-ink-500">
-            Don&apos;t have an account?{' '}
-            <Link to="/register" className="font-medium text-primary-700 hover:underline">Sign up</Link>
-          </p>
+          {registerLink}
         </>
       ) : (
         <>
-          <div className="mb-6">
-            <h2 className="font-display text-lg font-bold text-ink-900">Welcome back</h2>
-            <div className="mt-2 flex items-center justify-between gap-3 rounded-md bg-surface-muted px-3 py-2">
-              <span className="truncate text-sm text-ink-700">{email}</span>
-              <button type="button" onClick={changeEmail} className="shrink-0 text-xs font-medium text-primary-700 hover:underline">
-                Change email
-              </button>
-            </div>
+          <div className="mb-5 flex items-center justify-between gap-3 rounded-md bg-surface-muted px-3 py-2">
+            <span className="truncate text-sm text-ink-700">{email}</span>
+            <button type="button" onClick={changeEmail} className="shrink-0 text-xs font-medium text-primary-700 hover:underline">
+              Change email
+            </button>
           </div>
 
           <form onSubmit={handleSignIn} className="space-y-4" noValidate>
@@ -181,7 +194,16 @@ export default function Login() {
               </div>
             </div>
 
-            <div>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm text-ink-700">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-ink-300 accent-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                />
+                Remember me
+              </label>
               <Link to="/forgot-password" className="text-sm font-medium text-primary-700 hover:underline">
                 Forgot password?
               </Link>
@@ -189,18 +211,28 @@ export default function Login() {
 
             {errorBox}
 
-            {/* Static hint shown to everyone, so it cannot reveal which emails are Google-only. */}
-            <p className="text-xs leading-relaxed text-ink-500">
-              Signed up with Google?{' '}
-              <a href={googleLoginUrl} onClick={clearError} className="font-medium text-primary-700 hover:underline">Continue with Google</a>
-              , then you can add a password from your Profile.
-            </p>
-
             <button type="submit" disabled={loading} className="btn-primary w-full">
               <LogIn size={16} />
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
+
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-ink-200" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink-400">or</span>
+            <div className="h-px flex-1 bg-ink-200" />
+          </div>
+
+          <GoogleButton onClick={clearError} />
+
+          {/* Static hint shown to everyone, so it cannot reveal which emails are Google-only. */}
+          <p className="mt-4 text-center text-xs leading-relaxed text-ink-500">
+            Signed up with Google?{' '}
+            <a href={googleLoginUrl} onClick={clearError} className="font-medium text-primary-700 hover:underline">Continue with Google</a>
+            , then you can add a password from your Profile.
+          </p>
+
+          {registerLink}
         </>
       )}
 
