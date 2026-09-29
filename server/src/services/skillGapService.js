@@ -8,12 +8,42 @@ const { computeGap, gapStatus, gapPriority, requiredLevelFor } = require('../uti
  * (target role change re-derives every required level).
  */
 async function computeAndStoreSkillGaps(userId) {
-  const [profile, learnerCompetencies] = await Promise.all([
+  const [profile, learnerCompetencies, recentAssessmentAttempts, learningProgressRecords] = await Promise.all([
     prisma.learnerProfile.findUnique({ where: { userId } }),
     prisma.learnerCompetency.findMany({ where: { userId }, include: { competency: true } }),
+    // Recent completed assessments, newest first — used below to surface each competency's
+    // most recent assessment accuracy (distinct signal from quiz accuracy) for recommendation explainability.
+    prisma.assessmentAttempt.findMany({
+      where: { userId, status: 'COMPLETED' },
+      orderBy: { completedAt: 'desc' },
+      take: 5,
+      select: { performanceJson: true, completedAt: true },
+    }),
+    // Real learning-history signal: has the learner started/completed any course tied to this competency.
+    prisma.learningProgress.findMany({
+      where: { userId, competencyId: { not: null } },
+      orderBy: { updatedAt: 'desc' },
+    }),
   ]);
 
   const targetRole = profile?.targetRole || null;
+
+  const assessmentAccuracyByCompetencyId = new Map();
+  for (const attempt of recentAssessmentAttempts) {
+    for (const c of attempt.performanceJson?.competencyBreakdown || []) {
+      if (c.competencyId && !assessmentAccuracyByCompetencyId.has(c.competencyId)) {
+        assessmentAccuracyByCompetencyId.set(c.competencyId, c.accuracy);
+      }
+    }
+  }
+
+  const learningActivityByCompetencyId = new Map();
+  for (const p of learningProgressRecords) {
+    if (!learningActivityByCompetencyId.has(p.competencyId)) {
+      learningActivityByCompetencyId.set(p.competencyId, p.status);
+    }
+  }
+
   const results = [];
 
   for (const lc of learnerCompetencies) {
@@ -57,7 +87,15 @@ async function computeAndStoreSkillGaps(userId) {
       include: { competency: true },
     });
 
-    results.push({ ...skillGap, recentAccuracy: recentAccuracy != null ? Math.round(recentAccuracy) : null });
+    const assessmentAccuracy = assessmentAccuracyByCompetencyId.get(lc.competencyId);
+
+    results.push({
+      ...skillGap,
+      recentAccuracy: recentAccuracy != null ? Math.round(recentAccuracy) : null,
+      assessmentAccuracy: assessmentAccuracy != null ? Math.round(assessmentAccuracy) : null,
+      learningActivity: learningActivityByCompetencyId.get(lc.competencyId) || null,
+      targetRole,
+    });
   }
 
   return results.sort((a, b) => b.gap - a.gap);

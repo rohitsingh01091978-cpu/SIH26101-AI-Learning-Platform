@@ -7,6 +7,7 @@ const getLearningPath = asyncHandler(async (req, res) => {
   const path = recommendations.map((r, idx) => ({
     priority: idx + 1,
     competency: r.competency.name,
+    competencyId: r.competencyId,
     course: r.course
       ? { id: r.course.id, title: r.course.title, source: r.course.source, level: r.course.level }
       : null,

@@ -7,10 +7,10 @@ import EmptyState from '../components/EmptyState.jsx';
 import Badge from '../components/Badge.jsx';
 import Stepper from '../components/Stepper.jsx';
 import WhyEvidence from '../components/WhyEvidence.jsx';
+import CatalogSourceNote from '../components/CatalogSourceNote.jsx';
 import { SkeletonCard } from '../components/Skeleton.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { getLearningPath } from '../services/learningPathService';
-import { catalogLabel } from '../utils/display';
 import { startProgress } from '../services/progressService';
 import { getErrorMessage } from '../services/api';
 
@@ -45,7 +45,7 @@ export default function LearningPath() {
     if (!item.course) return;
     setStartingId(item.course.id);
     try {
-      await startProgress({ courseId: item.course.id });
+      await startProgress({ courseId: item.course.id, competencyId: item.competencyId });
       setStartedIds((s) => new Set(s).add(item.course.id));
       toast.success(`Started "${item.course.title}" — track it on the Progress page.`);
     } catch (err) {
@@ -76,19 +76,24 @@ export default function LearningPath() {
         <p className="mt-1.5 text-sm text-ink-700">{item.reason}</p>
         {item.course && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-subtle px-3 py-2.5">
-            <div className="flex items-center gap-2 text-sm text-ink-700">
-              <GraduationCap size={16} className="text-primary-600" />
-              <span className="font-medium">{item.course.title}</span>
-              <span className="text-xs text-ink-500">({catalogLabel(item.course.source)})</span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <Link to={`/igot-courses/${item.course.id}`} className="flex items-center gap-2 text-sm text-ink-700 hover:text-primary-700">
+                <GraduationCap size={16} className="shrink-0 text-primary-600" />
+                <span className="truncate font-medium">{item.course.title}</span>
+              </Link>
+              <CatalogSourceNote source={item.course.source} className="ml-6" />
             </div>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 text-xs text-ink-500">
                 <Clock size={12} /> {item.estimatedDurationHrs}h
               </span>
+              <Link to={`/igot-courses/${item.course.id}`} className="btn-secondary text-xs">
+                Course details
+              </Link>
               <button
                 onClick={() => handleStart(item)}
                 disabled={startingId === item.course.id || startedIds.has(item.course.id)}
-                className="btn-secondary text-xs"
+                className="btn-primary text-xs"
               >
                 {startedIds.has(item.course.id) ? 'Started' : startingId === item.course.id ? 'Starting...' : 'Start Learning'}
               </button>

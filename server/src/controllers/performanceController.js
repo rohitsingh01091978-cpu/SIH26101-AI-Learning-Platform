@@ -52,6 +52,7 @@ const getPerformance = asyncHandler(async (req, res) => {
       type: a.assessment.type,
       score: a.score,
       completedAt: a.completedAt,
+      performance: a.performanceJson,
     })),
     competencies: learnerCompetencies
       .map((c) => ({

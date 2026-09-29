@@ -3,14 +3,26 @@ const prisma = require('../utils/prisma');
 /**
  * iGOT Karmayogi integration service.
  *
+ * Architecture: Frontend -> igotController -> igotService (here) -> Prisma
+ * (Prototype Course Catalog) or, once implemented, the authorized iGOT API.
+ * No API key ever reaches the frontend; only this module and its env vars
+ * know about IGOT_API_BASE_URL / IGOT_API_KEY.
+ *
  * IMPORTANT (honesty note): this prototype does NOT have live iGOT
  * Karmayogi API credentials. Every course returned here comes from the
  * "Prototype iGOT Course Catalog" seeded into our own database — it is
  * clearly labelled as such via `source: "Prototype iGOT Catalog"` on every
- * record. If IGOT_API_BASE_URL / IGOT_API_KEY are ever configured with
- * authorized credentials, the four functions below are the ONLY place that
- * needs to change (swap the Prisma queries for fetch() calls to the real
- * API) — no controller or frontend code depends on the data's origin.
+ * record, and igotController surfaces that same honesty as `source` /
+ * `live` on every response it returns.
+ *
+ * CAVEAT for whoever wires up real credentials: isLiveConfigured() below
+ * only checks that IGOT_API_BASE_URL / IGOT_API_KEY are SET — it does not,
+ * by itself, make the four functions below fetch real data. They still
+ * query Prisma unconditionally today. Setting the env vars without also
+ * replacing those Prisma calls with real fetch() calls to the iGOT API
+ * would make the UI claim "iGOT Karmayogi (live)" while still serving the
+ * prototype catalog — do not do that. Implement the real fetch first, and
+ * only report live: true once a call actually succeeded.
  */
 const isLiveConfigured = () => Boolean(process.env.IGOT_API_BASE_URL && process.env.IGOT_API_KEY);
 

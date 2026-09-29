@@ -21,6 +21,7 @@ import AdaptiveQuiz from './pages/AdaptiveQuiz.jsx';
 import QuizResults from './pages/QuizResults.jsx';
 import LearningPath from './pages/LearningPath.jsx';
 import IgotCourses from './pages/IgotCourses.jsx';
+import CourseDetail from './pages/CourseDetail.jsx';
 import Progress from './pages/Progress.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import NotFound from './pages/NotFound.jsx';
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="/quizzes/:id/results" element={<QuizResults />} />
         <Route path="/learning-path" element={<LearningPath />} />
         <Route path="/igot-courses" element={<IgotCourses />} />
+        <Route path="/igot-courses/:id" element={<CourseDetail />} />
         <Route path="/progress" element={<Progress />} />
       </Route>
 
