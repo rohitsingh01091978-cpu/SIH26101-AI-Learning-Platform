@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function Tooltip({ children, label, side = 'top' }) {
+export default function Tooltip({ children, label, side = 'top', wrap = false }) {
   const [open, setOpen] = useState(false);
 
   const positions = {
@@ -21,7 +21,7 @@ export default function Tooltip({ children, label, side = 'top' }) {
       {open && (
         <span
           role="tooltip"
-          className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-popover animate-fade-in ${positions[side]}`}
+          className={`pointer-events-none absolute z-50 rounded-md bg-ink-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-popover animate-fade-in ${wrap ? 'w-64 whitespace-normal leading-snug' : 'whitespace-nowrap'} ${positions[side]}`}
         >
           {label}
         </span>

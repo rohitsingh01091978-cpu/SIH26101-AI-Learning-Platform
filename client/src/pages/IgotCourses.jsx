@@ -1,24 +1,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Clock, GraduationCap, Info, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, Clock, GraduationCap, SlidersHorizontal, Sparkles } from 'lucide-react';
 import PageHeader from '../components/PageHeader.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Badge from '../components/Badge.jsx';
+import CatalogSourceNote from '../components/CatalogSourceNote.jsx';
 import { SkeletonList } from '../components/Skeleton.jsx';
 import { getCourses, searchCourses } from '../services/igotService';
-import { catalogLabel } from '../utils/display';
 import { getSkillGaps } from '../services/skillGapService';
+import { getLearningPath } from '../services/learningPathService';
 import { getErrorMessage } from '../services/api';
 
 const LEVELS = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'];
 
-function CourseCard({ c, recommended }) {
+function CourseCard({ c, recommendation }) {
   return (
-    <div className={`card flex flex-col ${recommended ? 'ring-1 ring-accent-300' : ''}`}>
-      {recommended && (
-        <span className="mb-2 inline-flex w-fit items-center gap-1 rounded-md bg-accent-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-700">
-          <Sparkles size={10} /> Recommended for you
-        </span>
+    <Link to={`/igot-courses/${c.id}`} className={`card-interactive flex flex-col text-left ${recommendation ? 'ring-1 ring-accent-300' : ''}`}>
+      {recommendation && (
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-md bg-accent-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-700">
+            <Sparkles size={10} /> Recommended for you
+          </span>
+          <Badge variant={recommendation.priority}>{recommendation.priority} priority</Badge>
+        </div>
       )}
       <div className="mb-2 flex items-center justify-between">
         <Badge variant={c.competency?.category}>{c.competency?.name}</Badge>
@@ -30,9 +35,9 @@ function CourseCard({ c, recommended }) {
         <span className="flex items-center gap-1">
           <Clock size={12} /> {c.durationHrs}h
         </span>
-        <span className="truncate">{catalogLabel(c.source)}</span>
+        <CatalogSourceNote source={c.source} />
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -46,16 +51,20 @@ export default function IgotCourses() {
   const [maxDuration, setMaxDuration] = useState(12);
   const [relevantOnly, setRelevantOnly] = useState(false);
   const [gapCompetencyIds, setGapCompetencyIds] = useState(new Set());
+  // competencyId -> { priority, whyEvidence } — reused as-is from the Step 2 recommendation
+  // engine (getLearningPath), never recomputed here.
+  const [recommendationByCompetency, setRecommendationByCompetency] = useState(new Map());
   const [showFilters, setShowFilters] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [data, gaps] = await Promise.all([getCourses(), getSkillGaps()]);
+      const [data, gaps, path] = await Promise.all([getCourses(), getSkillGaps(), getLearningPath()]);
       setCourses(data.courses);
       setSource(data.source);
       setGapCompetencyIds(new Set(gaps.filter((g) => g.gap > 0).map((g) => g.competencyId)));
+      setRecommendationByCompetency(new Map(path.map((r) => [r.competencyId, { priority: r.whyEvidence.priority, whyEvidence: r.whyEvidence }])));
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -84,8 +93,8 @@ export default function IgotCourses() {
   };
 
   const recommended = useMemo(
-    () => courses.filter((c) => gapCompetencyIds.has(c.competencyId)).slice(0, 3),
-    [courses, gapCompetencyIds]
+    () => courses.filter((c) => recommendationByCompetency.has(c.competencyId)).slice(0, 3),
+    [courses, recommendationByCompetency]
   );
 
   const filtered = courses.filter((c) => {
@@ -101,21 +110,14 @@ export default function IgotCourses() {
         eyebrow="iGOT-aligned Learning Recommendations"
         title="Training Catalog"
         description="Courses mapped to the competency framework and structured for integration with the iGOT Karmayogi platform."
+        action={<CatalogSourceNote source={source} />}
       />
-
-      <div className="mb-4 flex items-start gap-2 rounded-md bg-primary-50 px-3 py-2.5 text-xs text-primary-800">
-        <Info size={14} className="mt-0.5 shrink-0" />
-        <span>
-          Source: <strong>{catalogLabel(source)}</strong> — recommendations use the platform&apos;s built-in, iGOT-aligned catalog.
-          A live iGOT Karmayogi connection is not enabled.
-        </span>
-      </div>
 
       {recommended.length > 0 && (
         <div className="mb-6">
           <p className="section-eyebrow mb-2">Based on your skill gaps</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recommended.map((c) => <CourseCard key={c.id} c={c} recommended />)}
+            {recommended.map((c) => <CourseCard key={c.id} c={c} recommendation={recommendationByCompetency.get(c.competencyId)} />)}
           </div>
         </div>
       )}
@@ -164,10 +166,14 @@ export default function IgotCourses() {
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={GraduationCap} title="No courses found" description="Try a different search term or adjust your filters." />
+        <EmptyState
+          icon={GraduationCap}
+          title="No matching learning resources found"
+          description={relevantOnly ? 'No matching learning resources found for this competency. Try clearing filters.' : 'Try a different search term or adjust your filters.'}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((c) => <CourseCard key={c.id} c={c} />)}
+          {filtered.map((c) => <CourseCard key={c.id} c={c} recommendation={recommendationByCompetency.get(c.competencyId)} />)}
         </div>
       )}
     </div>

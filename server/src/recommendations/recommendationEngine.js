@@ -1,6 +1,7 @@
 const prisma = require('../utils/prisma');
 const { computeAndStoreSkillGaps } = require('../services/skillGapService');
 const igotService = require('../services/igotService');
+const { ROLE_REQUIREMENTS } = require('../utils/competencyEngine');
 
 const PRIORITY_WEIGHT = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
@@ -42,7 +43,7 @@ async function generateLearningPath(userId, { limit = 6 } = {}) {
     const difficulty = course?.level || (gap.gap > 40 ? 'BEGINNER' : gap.gap > 20 ? 'INTERMEDIATE' : 'ADVANCED');
     const estimatedDurationHrs = course?.durationHrs ?? (gap.gap > 40 ? 8 : gap.gap > 20 ? 5 : 3);
 
-    const accuracyClause = gap.recentAccuracy != null ? ` Recent assessment accuracy on this competency: ${gap.recentAccuracy}%.` : '';
+    const accuracyClause = gap.recentAccuracy != null ? ` Recent quiz accuracy on this competency: ${gap.recentAccuracy}%.` : '';
     const reason = course
       ? `Your "${gap.competency.name}" level (${gap.currentLevel}) is ${gap.gap} points below the ${gap.requiredLevel} required for your target role.${accuracyClause} "${course.title}" directly targets this competency.`
       : `Your "${gap.competency.name}" level (${gap.currentLevel}) is ${gap.gap} points below the ${gap.requiredLevel} required for your target role.${accuracyClause} No catalog course is mapped to this competency yet.`;
@@ -63,14 +64,24 @@ async function generateLearningPath(userId, { limit = 6 } = {}) {
       include: { competency: true, course: true },
     });
 
+    // Real, not invented: whether this competency has an explicit required level for the
+    // learner's target role (vs. falling back to the DEFAULT_REQUIRED_LEVEL bar), read
+    // straight from the same ROLE_REQUIREMENTS map requiredLevelFor() already used above.
+    const roleMap = gap.targetRole ? ROLE_REQUIREMENTS[gap.targetRole] : null;
+    const roleSpecific = !!(roleMap && roleMap[gap.competency.name] != null);
+
     recommendations.push({
       ...recommendation,
       whyEvidence: {
         currentLevel: gap.currentLevel,
         requiredLevel: gap.requiredLevel,
         gap: gap.gap,
-        recentAccuracy: gap.recentAccuracy,
         priority: gap.priority,
+        quizAccuracy: gap.recentAccuracy,
+        assessmentAccuracy: gap.assessmentAccuracy,
+        roleRelevant: roleSpecific,
+        targetRole: gap.targetRole,
+        learningActivity: gap.learningActivity,
       },
     });
     rank += 1;

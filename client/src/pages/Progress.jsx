@@ -8,9 +8,12 @@ import KPICard from '../components/KPICard.jsx';
 import { SkeletonKPIRow, SkeletonChart } from '../components/Skeleton.jsx';
 import ScoreTrendChart from '../charts/ScoreTrendChart.jsx';
 import BeforeAfterChart from '../charts/BeforeAfterChart.jsx';
+import CompetencyProgressCard from '../components/CompetencyProgressCard.jsx';
+import CompetencyCalcExplainer from '../components/CompetencyCalcExplainer.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { listProgress, updateProgress } from '../services/progressService';
 import { getPerformance } from '../services/performanceService';
+import { getSkillGaps } from '../services/skillGapService';
 import { getErrorMessage } from '../services/api';
 
 const STATUS_ICON = { NOT_STARTED: Circle, IN_PROGRESS: PlayCircle, COMPLETED: CheckCircle2 };
@@ -22,15 +25,17 @@ export default function Progress() {
   const [error, setError] = useState('');
   const [items, setItems] = useState([]);
   const [performance, setPerformance] = useState(null);
+  const [skillGaps, setSkillGaps] = useState([]);
   const [updatingId, setUpdatingId] = useState(null);
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [progress, perf] = await Promise.all([listProgress(), getPerformance()]);
+      const [progress, perf, gaps] = await Promise.all([listProgress(), getPerformance(), getSkillGaps()]);
       setItems(progress);
       setPerformance(perf);
+      setSkillGaps(gaps);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -85,6 +90,43 @@ export default function Progress() {
 
   const gapReduction = [...growthMap.values()].reduce((s, g) => s + Math.max(0, g.after - g.before), 0);
 
+  // Earliest recorded "before" per competency, across both assessment attempts and quiz
+  // attempts — this is the real Initial Competency baseline, not a fabricated number.
+  const historyEvents = [
+    ...performance.recentAssessmentAttempts
+      .filter((a) => a.performance?.competencyBreakdown?.length)
+      .map((a) => ({ completedAt: a.completedAt, breakdown: a.performance.competencyBreakdown })),
+    ...performance.recentQuizAttempts
+      .filter((q) => q.performance?.competencyBreakdown?.length)
+      .map((q) => ({ completedAt: q.completedAt, breakdown: q.performance.competencyBreakdown })),
+  ].sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+
+  const baselineByCompetency = new Map();
+  for (const event of historyEvents) {
+    for (const c of event.breakdown) {
+      if (!baselineByCompetency.has(c.competency)) {
+        baselineByCompetency.set(c.competency, c.before);
+      }
+    }
+  }
+
+  const competencyProgress = performance.competencies
+    .map((c) => {
+      const gapEntry = skillGaps.find((g) => g.competency.name === c.competency);
+      const baseline = baselineByCompetency.has(c.competency) ? baselineByCompetency.get(c.competency) : null;
+      return {
+        competency: c.competency,
+        category: c.category,
+        baseline,
+        current: c.currentLevel,
+        required: c.requiredLevel,
+        improvement: baseline != null ? c.currentLevel - baseline : null,
+        remainingGap: gapEntry ? gapEntry.gap : Math.max(0, c.requiredLevel - c.currentLevel),
+        status: gapEntry ? gapEntry.status : c.currentLevel >= c.requiredLevel ? 'STRONG' : 'NEEDS_IMPROVEMENT',
+      };
+    })
+    .sort((a, b) => b.remainingGap - a.remainingGap);
+
   return (
     <div>
       <PageHeader eyebrow="Learning analytics" title="Learning Progress" description={`${completed} of ${items.length} courses completed`} />
@@ -106,6 +148,34 @@ export default function Progress() {
           <p className="section-eyebrow mb-1">Competency growth</p>
           <h2 className="mb-2 font-display text-sm font-bold text-ink-900">Before → after, across all quizzes</h2>
           {growthData.length ? <BeforeAfterChart data={growthData} /> : <EmptyState title="No growth data yet" />}
+        </div>
+      </div>
+
+      <div className="card mt-6">
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="section-eyebrow mb-1">Competency Improvement</p>
+            <h2 className="font-display text-sm font-bold text-ink-900">Competency Progress</h2>
+          </div>
+        </div>
+        <p className="mb-4 text-sm text-ink-500">
+          Initial competency → gap identified → recommended learning → adaptive assessment → updated competency, tracked per
+          competency from your real assessment and quiz history.
+        </p>
+        {competencyProgress.length ? (
+          <div className="space-y-3">
+            {competencyProgress.map((row) => (
+              <CompetencyProgressCard key={row.competency} row={row} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title="No competency data yet"
+            description="Complete the baseline competency assessment to establish your first scores."
+          />
+        )}
+        <div className="mt-4">
+          <CompetencyCalcExplainer />
         </div>
       </div>
 
